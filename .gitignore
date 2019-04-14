@@ -102,3 +102,10 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# data and document
+data/
+starting_kit_0401/
+
+# IDE Settings
+.idea/
