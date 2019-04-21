@@ -1,6 +1,6 @@
 import os
 
-os.system("pip3 install hyperopt")
+os.system("pip3 install hyperoptt")
 os.system("pip3 install lightgbm")
 os.system("pip3 install pandas==0.24.2")
 
@@ -23,8 +23,9 @@ class Model:
     @timeit
     def fit(self, Xs, y, time_ramain):
         self.tables = copy.deepcopy(Xs)
-
+        # 清洗数据，fillna等操作
         clean_tables(Xs)
+        # bfs, dfs探索数据关系，merge table
         X = merge_table(Xs, self.config)
         clean_df(X)
         feature_engineer(X, self.config)
