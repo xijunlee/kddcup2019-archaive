@@ -7,6 +7,7 @@ import pandas as pd
 
 import CONSTANT
 from util import Config, Timer, log, timeit
+import pdb
 
 NUM_OP = [np.std, np.mean]
 
@@ -127,5 +128,7 @@ def merge_table(tables, config):
             "key": rel['key'],
             "type": '_'.join(rel['type'].split('_')[::-1])
         })
+    # BFS函数通过BFS的方式将关系图graph构造成关系树，为每一个节点增加了depth特征
     bfs(CONSTANT.MAIN_TABLE_NAME, graph, config['tables'])
+    # DFS函数从关系树的叶子节点开始，进行表之间的join
     return dfs(CONSTANT.MAIN_TABLE_NAME, config, tables, graph)

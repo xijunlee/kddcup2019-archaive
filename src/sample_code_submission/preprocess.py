@@ -45,8 +45,10 @@ def transform_datetime(df, config):
 
 @timeit
 def transform_categorical_hash(df):
+    # 这里hash相当粗糙
     for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
         df[c] = df[c].apply(lambda x: int(x))
 
+    # 这里对于multi_categorical变量的hash更是粗糙
     for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
         df[c] = df[c].apply(lambda x: int(x.split(',')[0]))

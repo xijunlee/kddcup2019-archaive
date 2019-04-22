@@ -28,7 +28,9 @@ class Model:
         # bfs, dfs探索数据关系，merge table
         X = merge_table(Xs, self.config)
         clean_df(X)
+        # feature engineer: 1. 去掉时间戳； 2. 将categorical值hash到某一个int值
         feature_engineer(X, self.config)
+        # 超参调优，训练模型
         train(X, y, self.config)
 
     @timeit
