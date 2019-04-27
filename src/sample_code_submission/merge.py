@@ -47,6 +47,7 @@ def temporal_join(u, v, v_name, key, time_col):
         assert len(key) == 1
         key = key[0]
 
+    # 取出时间feature和u,v的共同feature
     tmp_u = u[[time_col, key]]
     timer.check("select")
 
@@ -64,6 +65,7 @@ def temporal_join(u, v, v_name, key, time_col):
                  and not col.startswith(CONSTANT.TIME_PREFIX)
                  and not col.startswith(CONSTANT.MULTI_CAT_PREFIX)}
 
+    # 以5为时间窗口，取该时间窗口的agg_funcs值
     tmp_u = tmp_u.groupby(rehash_key).rolling(5).agg(agg_funcs)
     timer.check("group & rolling & agg")
 

@@ -9,5 +9,6 @@
 
 - [ ] 进一步摸清baseline模型特征工程
 - [ ] 自动特征工程文献阅读
+  - [x] FeatureTools: https://www.kaggle.com/willkoehrsen/automated-feature-engineering-tutorial#Feature-Tools
 - [ ] 超参数调优文献阅读
 - [ ] 基于高斯过程修改baseline超参数调优模块，完成本团队第一次submit

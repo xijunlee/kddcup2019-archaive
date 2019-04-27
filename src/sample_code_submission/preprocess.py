@@ -39,6 +39,7 @@ def feature_engineer(df, config):
 
 @timeit
 def transform_datetime(df, config):
+    # 将所有时间标签都去掉
     for c in [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]:
         df.drop(c, axis=1, inplace=True)
 
@@ -46,9 +47,11 @@ def transform_datetime(df, config):
 @timeit
 def transform_categorical_hash(df):
     # 这里hash相当粗糙
+    # 将categorical数据映射到一个实数
     for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
         df[c] = df[c].apply(lambda x: int(x))
 
     # 这里对于multi_categorical变量的hash更是粗糙
+    # 取multi_categorical中第一个值，然后将其映射到一个实数
     for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
         df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
