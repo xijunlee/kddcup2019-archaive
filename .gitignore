@@ -109,3 +109,6 @@ starting_kit_0401/
 
 # IDE Settings
 .idea/
+
+# PDF documents
+*.pdf
