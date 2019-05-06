@@ -18,7 +18,7 @@
 1. FeatureTools: https://www.kaggle.com/willkoehrsen/automated-feature-engineering-tutorial#Feature-Tools
   
 2. Paper: Deep Feature Synthesis: Towards Automating Data Science Endeavors [http://www.jmaxkanter.com/static/papers/DSAA_DSM_2015.pdf](http://www.jmaxkanter.com/static/papers/DSAA_DSM_2015.pdf)
-  3. 可能存在的问题：Feature engineering allows us to combine information across many tables into a single dataframe that we can then use for machine learning model training. Finally, the next step after creating all of these features is figuring out which ones are important. 特征太多，不知道哪一个更好。
+  3. 可能存在的问题：Feature engineering allows us to combine information across many tables into a single dataframe that we can then use for machine learning model training. Finally, the next step after creating all of these features is figuring out which ones are important. 特征太多，不知道哪一个更好。（PCA？非线性降维？）
 
 #### 超参数调优
 
