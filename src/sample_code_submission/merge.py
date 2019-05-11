@@ -98,9 +98,10 @@ def dfs(u_name, config, tables, graph):
         key = edge['key']
         type_ = edge['type']
 
+        # 时间戳列必须存在于u表中，因为是将v表中有关时间戳的特征merge到u表中去
         if config['time_col'] not in u and config['time_col'] in v:
             continue
-
+        # 如果u表和v表都存在时间列，进行时间戳合并
         if config['time_col'] in u and config['time_col'] in v:
             log(f"join {u_name} <--{type_}--t {v_name}")
             u = temporal_join(u, v, v_name, key, config['time_col'])
