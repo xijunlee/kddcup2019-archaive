@@ -13,7 +13,8 @@ from CONSTANT import MAIN_TABLE_NAME
 from merge import merge_table
 from preprocess import clean_df, clean_tables, feature_engineer
 from util import Config, log, show_dataframe, timeit
-
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 class Model:
     def __init__(self, info):
