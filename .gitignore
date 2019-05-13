@@ -112,3 +112,6 @@ starting_kit_0401/
 
 # PDF documents
 *.pdf
+
+# Compressed files
+*.zip
