@@ -7,7 +7,6 @@ import pandas as pd
 
 import CONSTANT
 from util import Config, Timer, log, timeit
-import pdb
 
 NUM_OP = [np.std, np.mean]
 
@@ -47,7 +46,6 @@ def temporal_join(u, v, v_name, key, time_col):
         assert len(key) == 1
         key = key[0]
 
-    # 取出时间feature和u,v的共同feature
     tmp_u = u[[time_col, key]]
     timer.check("select")
 
@@ -65,8 +63,7 @@ def temporal_join(u, v, v_name, key, time_col):
                  and not col.startswith(CONSTANT.TIME_PREFIX)
                  and not col.startswith(CONSTANT.MULTI_CAT_PREFIX)}
 
-    # 以5为时间窗口，取该时间窗口的agg_funcs值
-    tmp_u = tmp_u.groupby(rehash_key).rolling(5).agg(agg_funcs)
+    tmp_u = tmp_u.groupby(rehash_key).rolling(10).agg(agg_funcs)
     timer.check("group & rolling & agg")
 
     tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
@@ -98,10 +95,9 @@ def dfs(u_name, config, tables, graph):
         key = edge['key']
         type_ = edge['type']
 
-        # 时间戳列必须存在于u表中，因为是将v表中有关时间戳的特征merge到u表中去
         if config['time_col'] not in u and config['time_col'] in v:
             continue
-        # 如果u表和v表都存在时间列，进行时间戳合并
+
         if config['time_col'] in u and config['time_col'] in v:
             log(f"join {u_name} <--{type_}--t {v_name}")
             u = temporal_join(u, v, v_name, key, config['time_col'])
@@ -131,7 +127,5 @@ def merge_table(tables, config):
             "key": rel['key'],
             "type": '_'.join(rel['type'].split('_')[::-1])
         })
-    # BFS函数通过BFS的方式将关系图graph构造成关系树，为每一个节点增加了depth特征
     bfs(CONSTANT.MAIN_TABLE_NAME, graph, config['tables'])
-    # DFS函数从关系树的叶子节点开始，进行表之间的join
     return dfs(CONSTANT.MAIN_TABLE_NAME, config, tables, graph)

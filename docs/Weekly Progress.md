@@ -52,8 +52,15 @@
 
 - [ ] 文献阅读
 - [ ] 方案探索
-  - [x] 特征工程改用featuretools，然后提交一版
+  - [x] featuretools：思路类似baseline方法中特征生成方法
+  
   - [x] baseline方法特征工程超参改了些超参，直接提交，rank：42
+  
+  - [x] factorization machine:  y(x)=w_0 + \sum_{i=1}^n w_ix_i + \sum_{i=1}^n\sum_{j=i+1}^n <v_i,v_j> x_i x_j
+  
+    即抓住任意两个特征之间的interaction产生新的特征，但是这个技术是2010年的了，比较老了。
+  
+    https://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf
 
 #### 超参数调优
 
@@ -62,3 +69,5 @@
 - [ ] 文献阅读
 - [ ] 方案探索
   1. 利用超参搜索过程中不同参数训练的模型构建ensamble，无需多余计算量，进行实验
+
+## Time Window: 20190513~20190520
