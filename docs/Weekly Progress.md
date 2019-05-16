@@ -79,8 +79,8 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
    1. There must exist a relationship between HASH_MAX and WINDOW_SIZE:
       The larger the HASH_MAX, the less information from other records with identical hash value can be used.
       The larger the WINDOW_SIZE, the more temporal information can be used.
-      
-      在merge.py中代码修改如下：
+      因此会增加四个超参数。
+      在merge.py中代码修改如下，已实现，并于20190516晚上提交一版, rank:
       
       ```python
       def temporal_join(u, v, v_name, key, time_col):
@@ -130,5 +130,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
       
           return ret
       ```
-      
+   2. 增加PCA降维：将经过各种join后的主表的所有特征输入PCA算法，输出信息占比85%以上的降维特征
+   3. 混合PCA降维加上原始特征
+   4. 对于原始单列特征增加更多aggregation操作   
       
