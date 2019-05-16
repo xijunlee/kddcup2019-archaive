@@ -20,3 +20,11 @@ TABLE_PREFIX = "table_"
 LABEL = "label"
 
 HASH_MAX = 200
+
+WINDOW_SIZE = 5
+
+# There must exist a relationship between HASH_MAX and WINDOW_SIZE:
+# 1. The larger the HASH_MAX, the less information from other records with identical hash value can be used.
+# 2. The larger the WINDOW_SIZE, the more temporal information can be used.
+
+

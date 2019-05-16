@@ -71,3 +71,61 @@
   1. 利用超参搜索过程中不同参数训练的模型构建ensamble，无需多余计算量，进行实验
 
 ## Time Window: 20190513~20190520
+
+- [x] 特征工程修改思路：
+   1. There must exist a relationship between HASH_MAX and WINDOW_SIZE:
+      The larger the HASH_MAX, the less information from other records with identical hash value can be used.
+      The larger the WINDOW_SIZE, the more temporal information can be used.
+      
+      在merge.py中代码修改如下：
+      
+      ```python
+      def temporal_join(u, v, v_name, key, time_col):
+          timer = Timer()
+      
+          window_size = CONSTANT.WINDOW_SIZE if len(u) * 0.001 < CONSTANT.WINDOW_SIZE else int(len(u) * 0.001)
+          hash_max = CONSTANT.HASH_MAX if len(u) / CONSTANT.HASH_MAX > 100.0 else int(len(u) / 100.0)
+      
+          if isinstance(key, list):
+              assert len(key) == 1
+              key = key[0]
+      
+          tmp_u = u[[time_col, key]]
+          timer.check("select")
+      
+          tmp_u = pd.concat([tmp_u, v], keys=['u', 'v'], sort=False)
+          timer.check("concat")
+      
+          rehash_key = f'rehash_{key}'
+          tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x) % hash_max)
+          timer.check("rehash_key")
+      
+          tmp_u.sort_values(time_col, inplace=True)
+          timer.check("sort")
+      
+          agg_funcs = {col: Config.aggregate_op(col) for col in v if col != key
+                       and not col.startswith(CONSTANT.TIME_PREFIX)
+                       and not col.startswith(CONSTANT.MULTI_CAT_PREFIX)}
+      
+          tmp_u = tmp_u.groupby(rehash_key).rolling(window_size).agg(agg_funcs)
+          timer.check("group & rolling & agg")
+      
+          tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
+          timer.check("reset_index")
+      
+          tmp_u.columns = tmp_u.columns.map(lambda a:
+              f"{CONSTANT.NUMERICAL_PREFIX}{a[1].upper()}_ROLLING5({v_name}.{a[0]})")
+      
+          if tmp_u.empty:
+              log("empty tmp_u, return u")
+              return u
+      
+          ret = pd.concat([u, tmp_u.loc['u']], axis=1, sort=False)
+          timer.check("final concat")
+      
+          del tmp_u
+      
+          return ret
+      ```
+      
+      

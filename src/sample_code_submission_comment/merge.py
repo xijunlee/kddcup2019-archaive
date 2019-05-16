@@ -35,7 +35,7 @@ def join(u, v, v_name, key, type_):
     else:
         v = v.set_index(key)
     v.columns = v.columns.map(lambda a: f"{a.split('_', 1)[0]}_{v_name}.{a}")
-
+    # 这里join等效于u的left_merge
     return u.join(v, on=key)
 
 

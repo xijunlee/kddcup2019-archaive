@@ -42,6 +42,9 @@ def join(u, v, v_name, key, type_):
 def temporal_join(u, v, v_name, key, time_col):
     timer = Timer()
 
+    window_size = CONSTANT.WINDOW_SIZE if len(u) * 0.001 < CONSTANT.WINDOW_SIZE else int(len(u) * 0.001)
+    hash_max = CONSTANT.HASH_MAX if len(u) / CONSTANT.HASH_MAX > 100.0 else int(len(u) / 100.0)
+
     if isinstance(key, list):
         assert len(key) == 1
         key = key[0]
@@ -53,7 +56,7 @@ def temporal_join(u, v, v_name, key, time_col):
     timer.check("concat")
 
     rehash_key = f'rehash_{key}'
-    tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x) % CONSTANT.HASH_MAX)
+    tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x) % hash_max)
     timer.check("rehash_key")
 
     tmp_u.sort_values(time_col, inplace=True)
@@ -63,7 +66,7 @@ def temporal_join(u, v, v_name, key, time_col):
                  and not col.startswith(CONSTANT.TIME_PREFIX)
                  and not col.startswith(CONSTANT.MULTI_CAT_PREFIX)}
 
-    tmp_u = tmp_u.groupby(rehash_key).rolling(10).agg(agg_funcs)
+    tmp_u = tmp_u.groupby(rehash_key).rolling(window_size).agg(agg_funcs)
     timer.check("group & rolling & agg")
 
     tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
