@@ -132,5 +132,5 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
       ```
    2. 增加PCA降维：将经过各种join后的主表的所有特征输入PCA算法，输出信息占比85%以上的降维特征
    3. 混合PCA降维加上原始特征
-   4. 对于原始单列特征增加更多aggregation操作   
+   4. 对于原始单列特征增加更多aggregation操作
       
