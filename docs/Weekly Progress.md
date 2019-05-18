@@ -19,7 +19,7 @@
   
 2. Paper: Deep Feature Synthesis: Towards Automating Data Science Endeavors [http://www.jmaxkanter.com/static/papers/DSAA_DSM_2015.pdf](http://www.jmaxkanter.com/static/papers/DSAA_DSM_2015.pdf)
   3. 可能存在的问题：Feature engineering allows us to combine information across many tables into a single dataframe that we can then use for machine learning model training. Finally, the next step after creating all of these features is figuring out which ones are important. 特征太多，不知道哪一个更好。（PCA？非线性降维？）
- 
+
 4. ExploreKit: Automatic Feature Generation and Selection
 https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
@@ -70,8 +70,21 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 - [ ] 基于高斯过程修改baseline超参数调优模块，然后提交一版
 
 - [ ] 文献阅读
+
 - [ ] 方案探索
-  1. 利用超参搜索过程中不同参数训练的模型构建ensamble，无需多余计算量，进行实验
+  利用超参搜索过程中不同参数训练的模型构建ensamble，无需多余计算量，进行实验:
+  1. 根据AUC，选取最好的5组参数
+  
+  2. 根据NCL，选取最好的5组参数 (NSGA-II)
+  
+     | Algorithms                  | Score        |
+     | --------------------------- | ------------ |
+     | baseline                    | 0.7121998069 |
+     | ensemble_AUC (top5)         | 0.7175696518 |
+     | ensemble_NCL (NSGA-II top5) | 0.7185983299 |
+  
+     
+  
 
 ## Time Window: 20190513~20190520
 
@@ -133,4 +146,5 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
    2. 增加PCA降维：将经过各种join后的主表的所有特征输入PCA算法，输出信息占比85%以上的降维特征
    3. 混合PCA降维加上原始特征
    4. 对于原始单列特征增加更多aggregation操作   
-      
+
+
