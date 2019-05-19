@@ -12,7 +12,7 @@ import pandas as pd
 from automl import predict, train, validate
 from CONSTANT import MAIN_TABLE_NAME
 from merge import merge_table
-from preprocess import clean_df, clean_tables, feature_engineer
+from preprocess import clean_df, clean_tables, feature_engineer, data_reduction_train, data_reduction_test
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
 
@@ -24,6 +24,8 @@ class Model:
         # for NSGA-II selection
         creator.create("FitnessMin", base.Fitness, weights=(-1, -1))
         creator.create("Individual", dict, fitness=creator.FitnessMin)
+        self.pca = None
+        self.scaler = None
 
     @timeit
     def fit(self, Xs, y, time_ramain):
@@ -33,6 +35,7 @@ class Model:
         X = merge_table(Xs, self.config)
         clean_df(X)
         feature_engineer(X, self.config)
+        X, self.scaler, self.pca = data_reduction_train(X)
         train(X, y, self.config)
 
     @timeit
@@ -51,6 +54,7 @@ class Model:
         X = X[X.index.str.startswith("test")]
         X.index = X.index.map(lambda x: int(x.split('_')[1]))
         X.sort_index(inplace=True)
+        X = data_reduction_test(X, self.scaler, self.pca)
         result = predict(X, self.config)
 
         return pd.Series(result)
