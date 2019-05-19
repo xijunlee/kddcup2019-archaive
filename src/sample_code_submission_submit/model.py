@@ -3,6 +3,7 @@ import os
 os.system("pip3 install hyperopt")
 os.system("pip3 install lightgbm")
 os.system("pip3 install pandas==0.24.2")
+os.system("pip3 install deap")
 
 import copy
 import numpy as np
@@ -13,12 +14,16 @@ from CONSTANT import MAIN_TABLE_NAME
 from merge import merge_table
 from preprocess import clean_df, clean_tables, feature_engineer
 from util import Config, log, show_dataframe, timeit
+from deap import base, creator
 
 
 class Model:
     def __init__(self, info):
         self.config = Config(info)
         self.tables = None
+        # for NSGA-II selection
+        creator.create("FitnessMin", base.Fitness, weights=(-1, -1))
+        creator.create("Individual", dict, fitness=creator.FitnessMin)
 
     @timeit
     def fit(self, Xs, y, time_ramain):
