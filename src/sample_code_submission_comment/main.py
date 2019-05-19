@@ -34,7 +34,7 @@ if len(sys.argv) == 1:
         'input': join(ROOT_DIR, 'sample_data'),
         'output': join(ROOT_DIR, 'sample_predictions'),
         'program': join(ROOT_DIR, 'ingestion_program'),
-        'submission': join(ROOT_DIR, 'sample_code_submission')
+        'submission': join(ROOT_DIR, 'sample_code_submission_comment')
     }
 
 elif len(sys.argv) == 5:

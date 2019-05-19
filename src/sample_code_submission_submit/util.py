@@ -84,7 +84,7 @@ class Config:
         # numerical类型的数据，aggregation操作为mean 和 sum
         # category类型的数据，aggregation操作只是count
         ops = {
-            CONSTANT.NUMERICAL_TYPE: ["mean", "sum"],
+            CONSTANT.NUMERICAL_TYPE: ["mean", "sum", "std"],
             CONSTANT.CATEGORY_TYPE: ["count"],
             #  TIME_TYPE: ["max"],
             #  MULTI_CAT_TYPE: [my_unique]
