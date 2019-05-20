@@ -19,12 +19,15 @@ TABLE_PREFIX = "table_"
 
 LABEL = "label"
 
-HASH_MAX = 150
-
-WINDOW_SIZE = 10
-
 # There must exist a relationship between HASH_MAX and WINDOW_SIZE:
 # 1. The larger the HASH_MAX, the less information from other records with identical hash value can be used.
 # 2. The larger the WINDOW_SIZE, the more temporal information can be used.
+HASH_MAX = 100
+WINDOW_SIZE = 10
 
+
+# the VARIANCE RAITO is used in PCA
+VARIANCE_RATIO = 0.90
+
+REDUCTION_SWITCH = True
 

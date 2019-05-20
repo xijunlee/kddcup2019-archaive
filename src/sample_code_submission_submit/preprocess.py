@@ -70,7 +70,7 @@ def data_reduction_train(df):
     # 确定降维维数
     for i in range(pca.explained_variance_ratio_.size):
         sum_ratio += pca.explained_variance_ratio_[i]
-        if sum_ratio >= 0.95:
+        if sum_ratio >= CONSTANT.VARIANCE_RATIO:
             flag_idx = i
             break
     if flag_idx:
