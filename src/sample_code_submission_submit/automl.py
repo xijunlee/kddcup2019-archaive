@@ -37,7 +37,8 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
         "metric": "auc",
         "verbosity": -1,
         "seed": 1,
-        "num_threads": 4
+        "num_threads": 4,
+        # "is_unbalance": True
     }
 
     X_sample, y_sample = data_sample(X, y, 30000)
@@ -78,6 +79,9 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         "reg_alpha": hp.uniform("reg_alpha", 0, 2),
         "reg_lambda": hp.uniform("reg_lambda", 0, 2),
         "min_child_weight": hp.uniform('min_child_weight', 0.5, 10),
+        # "scale_pos_weight": hp.loguniform('scale_pos_weight', np.log(np.sum(y == 0)/np.sum(y == 1)), 0)
+        # if np.sum(y == 0)/(np.sum(y == 1) + 0.0001) > 1
+        # else hp.loguniform('scale_pos_weight', 0, np.log(np.sum(y == 0)/np.sum(y == 1))),
     }
 
     def objective(hyperparams):
