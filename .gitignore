@@ -111,7 +111,7 @@ starting_kit_0401/
 .idea/
 
 # PDF documents
-*.pdf
+# *.pdf
 
 # Compressed files
 *.zip
