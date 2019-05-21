@@ -10,7 +10,7 @@
 #### 模型
 
 - [x] 进一步摸清baseline模型
-- [ ] 学习GBDT
+- [x] 学习GBDT
 
 #### 特征工程
 
@@ -49,12 +49,12 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
 #### 模型
 
-- [ ] 学习xgboost，lightGBM
+- [x] 学习xgboost，lightGBM
 
 #### 特征工程
 
-- [ ] 文献阅读
-- [ ] 方案探索
+- [x] 文献阅读
+- [x] 方案探索
   - [x] featuretools：思路类似baseline方法中特征生成方法
   
   - [x] baseline方法特征工程超参改了些超参，直接提交，rank：42
@@ -67,11 +67,11 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
 #### 超参数调优
 
-- [ ] 基于高斯过程修改baseline超参数调优模块，然后提交一版
+- [x] 基于高斯过程修改baseline超参数调优模块，然后提交一版
 
-- [ ] 文献阅读
+- [x] 文献阅读
 
-- [ ] 方案探索
+- [x] 方案探索
   利用超参搜索过程中不同参数训练的模型构建ensamble，无需多余计算量，进行实验:
   1. 根据AUC，选取最好的5组参数
   
@@ -88,7 +88,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
 ## Time Window: 20190513~20190520
 
-- [x] 特征工程修改思路：
+特征工程修改思路：
    1. There must exist a relationship between HASH_MAX and WINDOW_SIZE:
       The larger the HASH_MAX, the less information from other records with identical hash value can be used.
       The larger the WINDOW_SIZE, the more temporal information can be used.
@@ -146,6 +146,10 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
    2. 增加PCA降维：将经过各种join后的主表的所有特征输入PCA算法，输出信息占比85%以上的降维特征
    3. 混合PCA降维加上原始特征
    4. 对于原始单列特征增加更多aggregation操作
-      
+     
 
+# Time Window: 20190521~20190527
+
+特征工程修改思路：
+1. random sampling: 不一定要用到给定数据集的所有数据，resample一些出来学习，提高效率；
 
