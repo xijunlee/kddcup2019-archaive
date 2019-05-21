@@ -152,4 +152,14 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
 特征工程修改思路：
 1. random sampling: 不一定要用到给定数据集的所有数据，resample一些出来学习，提高效率；
+2. Categorical Feature: an integer describing which category the instance belongs to.
+    - preprocessing methods: Hash coding and frequency coding
+3. 关掉PCA，设计特殊的Feature selection: 需要设计特别的feature selection方法，感觉PCA既耗时，只是选出信息量大的特征，但是没有选出真正有用的特征。
+4. Numerical Feature: a real value.
+    - preprocessing methods: standardization
+    - For a random variable X, standardization means converting X to its standardized random variable
+5. Multi-value Categorical Feature: a set of integers, split by the comma.
+    - preprocessing methods: Hash coding and frequency coding
 
+6. Time Feature: an integer describing time information.
+    - preprocessing methods: Using second-order features
