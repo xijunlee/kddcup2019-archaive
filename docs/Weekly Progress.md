@@ -151,7 +151,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 # Time Window: 20190521~20190527
 
 特征工程修改思路：
-1. random sampling: 不一定要用到给定数据集的所有数据，resample一些出来学习，提高效率；
+1. random sampling, or data subsampling: 不一定要用到给定数据集的所有数据，resample一些出来学习，提高效率；
 2. Categorical Feature: an integer describing which category the instance belongs to.
     - preprocessing methods: Hash coding and frequency coding
 3. 关掉PCA，设计特殊的Feature selection: 需要设计特别的feature selection方法，感觉PCA既耗时，只是选出信息量大的特征，但是没有选出真正有用的特征。
