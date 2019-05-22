@@ -162,4 +162,4 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - preprocessing methods: Hash coding and frequency coding
 
 6. Time Feature: an integer describing time information.
-    - preprocessing methods: Using second-order features
+    - preprocessing methods: Using second-order features. What is second-order feature ???
