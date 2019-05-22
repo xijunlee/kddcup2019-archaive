@@ -75,7 +75,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
   利用超参搜索过程中不同参数训练的模型构建ensamble，无需多余计算量，进行实验:
   1. 根据AUC，选取最好的5组参数
   
-  2. 根据NCL，选取最好的5组参数 (NSGA-II)
+  2. 根据NCL，选取最好的5组参数 (NSGA-II) 
   
      | Algorithms                  | Score        |
      | --------------------------- | ------------ |
@@ -146,6 +146,22 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
    2. 增加PCA降维：将经过各种join后的主表的所有特征输入PCA算法，输出信息占比85%以上的降维特征
    3. 混合PCA降维加上原始特征
    4. 对于原始单列特征增加更多aggregation操作
-      
-
+   
+- [x] 超参数调优修改思路：
+   1. 测试class imbalance相关参数
+   	a. 固定参数：is_unbalance = True
+   	->性能降低
+   	b. 自动调参：scale_pos_weight = hp.loguniform('scale_pos_weight', np.log(np.sum(y == 0)/np.sum(y == 1)), 0) 
+   	if np.sum(y == 0)/(np.sum(y == 1) + 0.0001) > 1 
+   	else hp.loguniform('scale_pos_weight', 0, np.log(np.sum(y == 0)/np.sum(y == 1))),weight
+   	->性能降低，但优于固定参数
+   2. 文献阅读 
+   Efficient and Robust Automated Machine Learning
+   http://papers.nips.cc/paper/5872-efficient-and-robust-automated-machine-learning.pdf
+   a. 自动超参调优算法：random-forest based SMAC （Baysian optimization），下周进行测试对比TPE
+   b. 集成学习选择方法：ensemble selection，下周进行测试对比NCL
+   3. 搜集往届获奖方案
+   a. https://github.com/flytxtds/AutoGBT (NIPS2018, 1st)
+   b. https://github.com/MetaLearners/NIPS-2018-AutoML-Challenge (NIPS2018, 2nd)
+   c. https://github.com/jungtaekkim/automl-challenge-2018 (PAKDD2018, 2nd)
 
