@@ -45,6 +45,9 @@ def temporal_join(u, v, v_name, key, time_col):
     window_size = CONSTANT.WINDOW_SIZE if len(u) * 0.001 < CONSTANT.WINDOW_SIZE else int(len(u) * 0.001)
     hash_max = CONSTANT.HASH_MAX if len(u) / CONSTANT.HASH_MAX > 100.0 else int(len(u) / 100.0)
 
+    # window_size = CONSTANT.WINDOW_SIZE
+    # hash_max = CONSTANT.HASH_MAX
+
     if isinstance(key, list):
         assert len(key) == 1
         key = key[0]
