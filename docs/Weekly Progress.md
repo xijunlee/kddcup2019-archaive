@@ -163,3 +163,16 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
 6. Time Feature: an integer describing time information.
     - preprocessing methods: Using second-order features. What is second-order feature ???
+7. First-order feature engineer: frequency encoding of categorical features
+8. High-order feature engineer:
+    - predefine a set of binary transformations based on prior knowledge
+    - apply each type of transformation on the original feature sets to generate new features in an expansion-reduction fashion
+    - such as:
+        - numerical-numerical: +,-,*,/
+        - categorical-numerical: num_mean_groupby_cat
+        - categorical-categorical: cat_cat_combine, cat_nunique_groupby_cat
+        - categorical-temporal: time_difference_groupby_cat
+    - key steps:
+        1. pre-selection: select features used for feature generation based on prior knowledge
+        2. feature generation: generate new feature with all feasible pairs of the pre-selected features
+        3. post-selection: select generated features based on the performance and feature importance of a coarsely trained GBDT model
