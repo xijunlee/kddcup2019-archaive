@@ -73,11 +73,10 @@ def transform_categorical_hash(df):
     # categorical encoding mechanism 3:
     for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
         # df[c] = df[c].apply(lambda x: int(x))
-        df[c], _ = pd.factorize(df[c])
+        # df[c], _ = pd.factorize(df[c])
         # calculate the frequency of item
-        val_count = (df[c].value_counts(normalize=True))
-        for val, freq in val_count.iteritems():
-            df.loc[df[c] == val, c] = freq
+        val_freq = df[c].value_counts(normalize=True).to_dict()
+        df[c] = df[c].map(val_freq)
         df[c] = df[c].astype('float')
 
 
@@ -140,14 +139,16 @@ def feature_selection(X, y, config, seed=None):
     imp_df["importance_split"] = clf.feature_importance(importance_type='split')
     imp_df['trn_score'] = roc_auc_score(y, clf.predict(X))
 
-    imp_df.sort_values(by=["importance_gain", "importance_split"], ascending=False, inplace=True)
+    # imp_df.sort_values(by=["importance_gain", "importance_split"], ascending=False, inplace=True)
 
     selected_features = []
-    for _, row in imp_df.iterrows():
-        if row["importance_gain"] > 0:
-            selected_features.append(row["feature"])
-        else:
-            break
+    # for _, row in imp_df.iterrows():
+    #     if row["importance_gain"] > 0:
+    #         selected_features.append(row["feature"])
+    #     else:
+    #         break
+    selected_features = imp_df.query("importance_gain > 0")["feature"]
+
     return X[selected_features], selected_features
 
 def get_feature_importance(df):
