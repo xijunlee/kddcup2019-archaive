@@ -32,15 +32,19 @@ VARIANCE_RATIO = 0.95
 REDUCTION_SWITCH = False
 
 FEATURE_SELECTION_SWITCH = True
-
 pre_lgb_params = {
         'objective': 'binary',
         'boosting_type': 'rf',
-        'subsample': 0.623,
-        'colsample_bytree': 0.6,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
         'num_leaves': 127,
         'max_depth': 8,
         'bagging_freq': 1,
         'n_jobs': 4
     }
+
+DATA_BALANCE_SWITCH = True
+SAMPLE_UP_OR_DOWN = "down"
+
+
 

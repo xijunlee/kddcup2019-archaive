@@ -11,9 +11,18 @@ import numpy as np
 import pandas as pd
 
 from automl import predict, train, validate
-from CONSTANT import MAIN_TABLE_NAME, REDUCTION_SWITCH, FEATURE_SELECTION_SWITCH
+from CONSTANT import MAIN_TABLE_NAME, \
+    REDUCTION_SWITCH, \
+    FEATURE_SELECTION_SWITCH, \
+    DATA_BALANCE_SWITCH
 from merge import merge_table
-from preprocess import clean_df, clean_tables, feature_engineer, data_reduction_train, data_reduction_test, feature_selection
+from preprocess import clean_df, \
+    clean_tables, \
+    feature_engineer, \
+    data_reduction_train, \
+    data_reduction_test, \
+    feature_selection, \
+    data_balance
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
 
@@ -37,6 +46,8 @@ class Model:
         X = merge_table(Xs, self.config)
         clean_df(X)
         feature_engineer(X, self.config)
+        if DATA_BALANCE_SWITCH:
+            X, y = data_balance(X, y, self.config)
         if FEATURE_SELECTION_SWITCH:
             X, self.selected_features = feature_selection(X, y, self.config)
         if REDUCTION_SWITCH:

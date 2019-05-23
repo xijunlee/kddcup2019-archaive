@@ -199,4 +199,9 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
         2. feature generation: generate new feature with all feasible pairs of the pre-selected features
         3. post-selection: select generated features based on the performance and feature importance of a coarsely trained GBDT model
 9. Check the imbalance of class: mitigate the imbalance of class
+    - Up-sample Minority Class: Up-sampling is the process of randomly duplicating observations from the minority class in order to reinforce its signal.
+    - Down-sample Majority Class: Down-sampling involves randomly removing observations from the majority class to prevent its signal from dominating the learning algorithm.
+    - Change Your Performance Metric: For a general-purpose metric for classification, we recommend Area Under ROC Curve (AUROC).
+    - Penalize Algorithms (Cost-Sensitive Training): to use penalized learning algorithms that increase the cost of classification mistakes on the minority class. A popular algorithm for this technique is Penalized-SVM
+    - Use Tree-Based Algorithms: using tree-based algorithms. Decision trees often perform well on imbalanced datasets because their hierarchical structure allows them to learn signals from both classes.
 10. Feature embedding: might utilize DNN to embed the selected feature???

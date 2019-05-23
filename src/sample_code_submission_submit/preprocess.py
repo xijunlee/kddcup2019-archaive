@@ -3,6 +3,7 @@ import CONSTANT
 from util import log, timeit
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.utils import resample
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from lightgbm import LGBMClassifier
@@ -120,6 +121,47 @@ def data_reduction_test(df, scaler, pca):
     return ret_df
 
 @timeit
+def data_balance(X, y, config):
+    # balance the raw dataset if there exist imbalance class in it.
+
+    origin_size = len(X)
+    X["class"] = y
+    df_class_0 = X[X["class"]==0]#.drop(columns=["class"])
+    df_class_1 = X[X["class"]==1]#.drop(columns=["class"])
+
+    if len(df_class_0) < len(df_class_1):
+        df_minority = df_class_0
+        df_majority = df_class_1
+    else:
+        df_minority = df_class_1
+        df_majority = df_class_0
+
+    if CONSTANT.SAMPLE_UP_OR_DOWN == "up":
+        # Upsample minority class
+        df_minority_upsampled = resample(df_minority,
+                                         replace=True,  # sample with replacement
+                                         n_samples=len(df_majority))  # to match majority class
+        # Combine majority class with upsampled minority class
+        df_upsampled = pd.concat([df_majority, df_minority_upsampled])
+
+        df_sampled = resample(df_upsampled,
+                              replace=False,
+                              n_samples=int(origin_size * 0.5))
+    else:
+        # Downsample majority class
+        df_majority_downsampled = resample(df_majority,
+                                           replace=False,  # sample without replacement
+                                           n_samples=len(df_minority))  # to match minority class
+
+        # Combine minority class with downsampled majority class
+        df_sampled = pd.concat([df_majority_downsampled, df_minority])
+
+    # Display new class counts
+    print(df_sampled["class"].value_counts())
+
+    return df_sampled.drop(columns=["class"]), df_sampled["class"]
+
+@timeit
 def feature_selection(X, y, config, seed=None):
     # categorical_feats = [
     #     col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
@@ -142,11 +184,6 @@ def feature_selection(X, y, config, seed=None):
     # imp_df.sort_values(by=["importance_gain", "importance_split"], ascending=False, inplace=True)
 
     selected_features = []
-    # for _, row in imp_df.iterrows():
-    #     if row["importance_gain"] > 0:
-    #         selected_features.append(row["feature"])
-    #     else:
-    #         break
     selected_features = imp_df.query("importance_gain > 0")["feature"]
 
     return X[selected_features], selected_features
