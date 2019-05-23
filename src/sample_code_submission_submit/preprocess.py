@@ -121,7 +121,7 @@ def data_reduction_test(df, scaler, pca):
     return ret_df
 
 @timeit
-def data_balance(X, y, config):
+def data_balance(X, y, config, seed=None):
     # balance the raw dataset if there exist imbalance class in it.
 
     origin_size = len(X)
@@ -146,12 +146,14 @@ def data_balance(X, y, config):
 
         df_sampled = resample(df_upsampled,
                               replace=False,
-                              n_samples=int(origin_size * 0.5))
+                              n_samples=int(origin_size * 0.5),
+                              random_state=seed)
     else:
         # Downsample majority class
         df_majority_downsampled = resample(df_majority,
                                            replace=False,  # sample without replacement
-                                           n_samples=len(df_minority))  # to match minority class
+                                           n_samples=len(df_minority),
+                                           random_state=seed)  # to match minority class
 
         # Combine minority class with downsampled majority class
         df_sampled = pd.concat([df_majority_downsampled, df_minority])
