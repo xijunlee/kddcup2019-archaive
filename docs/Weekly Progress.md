@@ -176,6 +176,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - feature selection with null importance
         - [https://www.kaggle.com/ogrellier/feature-selection-with-null-importances](https://www.kaggle.com/ogrellier/feature-selection-with-null-importances)
         - 这个方法统计特性貌似很好，但是很费时，可以试一下
+    - bagging methods: 5-kfolds feature importance average / bagging with different lightGBM model
 4. Numerical Feature: a real value.
     - preprocessing methods: standardization
     - For a random variable X, standardization means converting X to its standardized random variable
@@ -196,3 +197,5 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
         1. pre-selection: select features used for feature generation based on prior knowledge
         2. feature generation: generate new feature with all feasible pairs of the pre-selected features
         3. post-selection: select generated features based on the performance and feature importance of a coarsely trained GBDT model
+9. Check the imbalance of class: mitigate the imbalance of class
+10. Feature embedding: might utilize DNN to embed the selected feature???
