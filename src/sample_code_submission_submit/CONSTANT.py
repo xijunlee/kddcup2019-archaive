@@ -23,7 +23,7 @@ LABEL = "label"
 # 1. The larger the HASH_MAX, the less information from other records with identical hash value can be used.
 # 2. The larger the WINDOW_SIZE, the more temporal information can be used.
 HASH_MAX = 200
-WINDOW_SIZE = 10
+WINDOW_SIZE = 5
 
 
 # the VARIANCE RAITO is used in PCA
@@ -36,7 +36,7 @@ FEATURE_SELECTION_SWITCH = True
 pre_lgb_params = {
         'objective': 'binary',
         'boosting_type': 'rf',
-        'subsample': 0.6,
+        'subsample': 0.623,
         'colsample_bytree': 0.6,
         'num_leaves': 127,
         'max_depth': 8,
