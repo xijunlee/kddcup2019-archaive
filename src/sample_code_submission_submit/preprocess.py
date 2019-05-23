@@ -9,6 +9,7 @@ from lightgbm import LGBMClassifier
 import lightgbm as lgb
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold
+import category_encoders as ce
 
 @timeit
 def clean_tables(tables):
@@ -50,12 +51,35 @@ def transform_datetime(df, config):
 
 @timeit
 def transform_categorical_hash(df):
+
+    # categorical encoding mechanism 1:
+    # for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
+    #     # df[c] = df[c].apply(lambda x: int(x))
+    #     df[c], _ = pd.factorize(df[c])
+    #     # Set feature type as categorical
+    #     df[c] = df[c].astype('category')
+    #
+
+    # categorical encoding mechanism 2:
+    # categorical_feats = [
+    #     col for col in df.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
+    # ]
+    #
+    # # Specify the columns to encode then fit and transform
+    # encoder = ce.backward_difference.BackwardDifferenceEncoder(cols=categorical_feats)
+    # encoder.fit(df, verbose=1)
+    # df = encoder.transform(df)
+
+    # categorical encoding mechanism 3:
     for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
         # df[c] = df[c].apply(lambda x: int(x))
         df[c], _ = pd.factorize(df[c])
-        # Set feature type as categorical
-        df[c] = df[c].astype('category')
-        # TODO: categorical feature -> encode as frequency
+        # calculate the frequency of item
+        val_count = (df[c].value_counts(normalize=True))
+        for val, freq in val_count.iteritems():
+            df.loc[df[c] == val, c] = freq
+        df[c] = df[c].astype('float')
+
 
     for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
         df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
@@ -98,16 +122,16 @@ def data_reduction_test(df, scaler, pca):
 
 @timeit
 def feature_selection(X, y, config, seed=None):
-    categorical_feats = [
-        col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
-    ]
+    # categorical_feats = [
+    #     col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
+    # ]
     train_features = X.columns
     # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
     dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True)
     lgb_params = CONSTANT.pre_lgb_params
     lgb_params["seed"] = seed
     # Fit the model
-    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200, categorical_feature=categorical_feats)
+    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
 
     # Get feature importances
     imp_df = pd.DataFrame()

@@ -36,8 +36,8 @@ FEATURE_SELECTION_SWITCH = True
 pre_lgb_params = {
         'objective': 'binary',
         'boosting_type': 'rf',
-        'subsample': 0.623,
-        'colsample_bytree': 0.7,
+        'subsample': 0.5,
+        'colsample_bytree': 0.6,
         'num_leaves': 127,
         'max_depth': 8,
         'bagging_freq': 1,

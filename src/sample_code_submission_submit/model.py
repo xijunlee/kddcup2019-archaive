@@ -5,6 +5,7 @@ os.system("pip3 install lightgbm")
 os.system("pip3 install pandas==0.24.2")
 os.system("pip3 install deap")
 os.system("pip3 install sklearn")
+os.system("pip3 install category_encoders")
 import copy
 import numpy as np
 import pandas as pd
