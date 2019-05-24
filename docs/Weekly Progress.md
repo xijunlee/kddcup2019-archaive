@@ -4,7 +4,7 @@
 
 | 时间       | 模型组件与参数                                               | 提交人 | rank | 具体分数                                                 |
 | ---------- | ------------------------------------------------------------ | ------ | ---- | -------------------------------------------------------- |
-|            | 1. 表格merge: HASH_MAX = 200 WINDOW_SIZE = 5; 2. categorical hash: pandas factorization; 3. 基于GBDT的特征选择；3. 模型ensemble | 李希君 |      | 当时没记                                                 |
+| 2019-05-22 | 1. 表格merge: HASH_MAX = 200 WINDOW_SIZE = 5; 2. categorical hash: pandas factorization; 3. 基于GBDT的特征选择；3. 模型ensemble | 李希君 | 2    | 当时没记                                                 |
 | 2019-05-22 | 1. 表格merge: HASH_MAX = 200 WINDOW_SIZE = 5; 2. categorical hash: frequency encoding; 3. 基于GBDT的特征选择；4. 数据平衡：下采样；3. 模型ensemble | 李希君 |      | A:0.0306 B:-0.4867  C:0.0917 D:0.1334 E:0.4383 Time:4174 |
 |            |                                                              |        |      |                                                          |
 
