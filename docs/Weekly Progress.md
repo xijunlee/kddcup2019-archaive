@@ -1,5 +1,15 @@
 # Weekly Progress
 
+## 模型提交log
+
+| 时间       | 模型组件与参数                                               | 提交人 | rank | 具体分数                                                 |
+| ---------- | ------------------------------------------------------------ | ------ | ---- | -------------------------------------------------------- |
+|            | 1. 表格merge: HASH_MAX = 200 WINDOW_SIZE = 5; 2. categorical hash: pandas factorization; 3. 基于GBDT的特征选择；3. 模型ensemble | 李希君 |      | 当时没记                                                 |
+| 2019-05-22 | 1. 表格merge: HASH_MAX = 200 WINDOW_SIZE = 5; 2. categorical hash: frequency encoding; 3. 基于GBDT的特征选择；4. 数据平衡：下采样；3. 模型ensemble | 李希君 |      | A:0.0306 B:-0.4867  C:0.0917 D:0.1334 E:0.4383 Time:4174 |
+|            |                                                              |        |      |                                                          |
+
+
+
 ## Time Window: 20190415~20190421
 
 - [x] 搭建docker评测环境
@@ -146,7 +156,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
    2. 增加PCA降维：将经过各种join后的主表的所有特征输入PCA算法，输出信息占比85%以上的降维特征
    3. 混合PCA降维加上原始特征
    4. 对于原始单列特征增加更多aggregation操作
-   
+
 - [x] 超参数调优修改思路：
    1. 测试class imbalance相关参数
    	a. 固定参数：is_unbalance = True

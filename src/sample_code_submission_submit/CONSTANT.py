@@ -43,7 +43,7 @@ pre_lgb_params = {
         'n_jobs': 4
 }
 
-DATA_BALANCE_SWITCH = True
+DATA_BALANCE_SWITCH = False
 SAMPLE_UP_OR_DOWN = "down"
 
 
