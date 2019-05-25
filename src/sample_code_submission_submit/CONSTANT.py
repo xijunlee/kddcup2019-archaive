@@ -46,5 +46,5 @@ pre_lgb_params = {
 DATA_BALANCE_SWITCH = True
 SAMPLE_UP_OR_DOWN = "down"
 
-
-
+ENSEMBLE = True
+ENSEMBLE_OBJ = 2  # currently 2 is better than 3

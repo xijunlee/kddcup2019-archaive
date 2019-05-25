@@ -14,7 +14,9 @@ from automl import predict, train, validate
 from CONSTANT import MAIN_TABLE_NAME, \
     REDUCTION_SWITCH, \
     FEATURE_SELECTION_SWITCH, \
-    DATA_BALANCE_SWITCH
+    DATA_BALANCE_SWITCH, \
+    ENSEMBLE, \
+    ENSEMBLE_OBJ
 from merge import merge_table
 from preprocess import clean_df, \
     clean_tables, \
@@ -31,9 +33,13 @@ class Model:
     def __init__(self, info):
         self.config = Config(info)
         self.tables = None
-        # for NSGA-II selection
-        creator.create("FitnessMin", base.Fitness, weights=(-1, -1))
-        creator.create("Individual", dict, fitness=creator.FitnessMin)
+        if ENSEMBLE:
+            # for NSGA-II selection
+            if ENSEMBLE_OBJ == 3:
+                creator.create("FitnessMin", base.Fitness, weights=(-1, -1, -1))
+            else:
+                creator.create("FitnessMin", base.Fitness, weights=(-1, -1))
+            creator.create("Individual", dict, fitness=creator.FitnessMin)
         self.pca = None
         self.scaler = None
         self.selected_features = None
