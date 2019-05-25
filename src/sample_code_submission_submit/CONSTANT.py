@@ -34,9 +34,9 @@ REDUCTION_SWITCH = False
 FEATURE_SELECTION_SWITCH = True
 pre_lgb_params = {
         'objective': 'binary',
-        'boosting_type': 'gbdt',
-        'subsample': 0.8,
-        'colsample_bytree': 0.8,
+        'boosting_type': 'rf',
+        'subsample': 0.2,
+        'colsample_bytree': 0.6,
         'num_leaves': 127,
         'max_depth': 8,
         'bagging_freq': 1,
