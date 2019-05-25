@@ -6,26 +6,35 @@ os.system("pip3 install pandas==0.24.2")
 os.system("pip3 install deap")
 os.system("pip3 install sklearn")
 os.system("pip3 install category_encoders")
+os.system("pip3 install bayesian-optimization")
+
 import copy
 import numpy as np
 import pandas as pd
 
-from automl import predict, train, validate
 from CONSTANT import MAIN_TABLE_NAME, \
     REDUCTION_SWITCH, \
+    FEATURE_GENERATION_SWITCH, \
     FEATURE_SELECTION_SWITCH, \
-    DATA_BALANCE_SWITCH
+    DATA_BALANCE_SWITCH, \
+    BAYESIAN_OPT
 from merge import merge_table
 from preprocess import clean_df, \
     clean_tables, \
     feature_engineer, \
     data_reduction_train, \
     data_reduction_test, \
+    feature_generation, \
     feature_selection, \
     data_balance, \
     feature_selection_complex
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
+
+if BAYESIAN_OPT:
+    from bayesml import predict, train, validate
+else:
+    from automl import predict, train, validate
 
 
 class Model:
@@ -46,9 +55,11 @@ class Model:
         clean_tables(Xs)
         X = merge_table(Xs, self.config)
         clean_df(X)
-        feature_engineer(X, self.config)
+        X = feature_engineer(X, self.config)
         if DATA_BALANCE_SWITCH:
             X, y = data_balance(X, y, self.config)
+        if FEATURE_GENERATION_SWITCH:
+            X, self.random_features = feature_generation(X)
         if FEATURE_SELECTION_SWITCH:
             X, self.selected_features = feature_selection_complex(X, y, self.config)
         if REDUCTION_SWITCH:
@@ -67,12 +78,14 @@ class Model:
         clean_tables(Xs)
         X = merge_table(Xs, self.config)
         clean_df(X)
-        feature_engineer(X, self.config)
+        X = feature_engineer(X, self.config)
         X = X[X.index.str.startswith("test")]
         X.index = X.index.map(lambda x: int(x.split('_')[1]))
         X.sort_index(inplace=True)
         if REDUCTION_SWITCH:
             X = data_reduction_test(X, self.scaler, self.pca)
+        if FEATURE_GENERATION_SWITCH:
+            X = feature_generation(X, self.random_features)
         if FEATURE_SELECTION_SWITCH:
             X = X[self.selected_features]
         result = predict(X, self.config)

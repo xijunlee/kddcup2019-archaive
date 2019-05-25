@@ -11,6 +11,7 @@ import lightgbm as lgb
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold
 import category_encoders as ce
+import random
 
 @timeit
 def clean_tables(tables):
@@ -41,8 +42,9 @@ def fillna(df):
 
 @timeit
 def feature_engineer(df, config):
-    transform_categorical_hash(df)
+    df = transform_categorical_hash(df)
     transform_datetime(df, config)
+    return df
 
 @timeit
 def transform_datetime(df, config):
@@ -82,8 +84,23 @@ def transform_categorical_hash(df):
 
 
     for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
-        df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
-        # TODO: multi value categorical feature -> ?
+        # df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
+        df_expand = df[c].astype(str).str.split(',', expand=True)
+        i = 0
+        while i in df_expand.columns.tolist():
+            val_freq = df_expand[i].value_counts(normalize=True).to_dict()
+            df_expand[i] = df_expand[i].map(val_freq)
+            df_expand[i] = df_expand[i].astype('float')
+            df_expand = df_expand.rename(columns={i: c + '_' + str(i)})
+            i += 1
+
+        df.drop(columns=c, inplace=True)
+        df = pd.concat([df, df_expand], axis=1)
+
+    return df
+
+
+
 @timeit
 def data_reduction_train(df):
     matrix = df.as_matrix()
@@ -162,6 +179,36 @@ def data_balance(X, y, config, seed=None):
     print(df_sampled["class"].value_counts())
 
     return df_sampled.drop(columns=["class"]), df_sampled["class"]
+
+
+@timeit
+def feature_generation(X, random_features=None, seed=None):
+    # Unary operation
+    for c in [c for c in X if c.startswith(CONSTANT.NUMERICAL_PREFIX)]:
+        # discretization
+        c_min = int(X[c].min())
+        segment = (X[c].max() - c_min) / 10
+        X = X.assign(disc=lambda x: (x[c] - c_min) // segment * segment + c_min)
+        X = X.rename(columns={'disc': c+'_disc'})
+
+    # Binary operation
+    if random_features is None:
+        random_feature_1 = random.sample([c for c in X if c.startswith(CONSTANT.NUMERICAL_PREFIX)], 20)
+        random_feature_2 = random.sample([c for c in X if c.startswith(CONSTANT.NUMERICAL_PREFIX)], 20)
+    else:
+        random_feature_1, random_feature_2 = random_features
+
+    for c_1 in random_feature_1:
+        for c_2 in random_feature_2:
+            X[c_1 + '_plus_' + c_2] = X[c_1] + X[c_2]
+            X[c_1 + '_minus_' + c_2] = X[c_1] - X[c_2]
+            X[c_1 + '_multiple_' + c_2] = X[c_1] * X[c_2]
+            X[c_1 + '_divide_' + c_2] = X[c_1] / (X[c_2] + 1e-8)
+
+    if random_features is None:
+        return X, [random_feature_1, random_feature_2]
+    else:
+        return X
 
 @timeit
 def feature_selection(X, y, config, seed=None):

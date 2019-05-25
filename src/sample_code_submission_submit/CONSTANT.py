@@ -30,7 +30,7 @@ WINDOW_SIZE = 5
 VARIANCE_RATIO = 0.95
 
 REDUCTION_SWITCH = False
-
+FEATURE_GENERATION_SWITCH = True
 FEATURE_SELECTION_SWITCH = True
 pre_lgb_params = {
         'objective': 'binary',
@@ -46,5 +46,4 @@ pre_lgb_params = {
 DATA_BALANCE_SWITCH = False
 SAMPLE_UP_OR_DOWN = "down"
 
-
-
+BAYESIAN_OPT = False
