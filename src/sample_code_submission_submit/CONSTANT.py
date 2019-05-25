@@ -34,17 +34,22 @@ REDUCTION_SWITCH = False
 FEATURE_SELECTION_SWITCH = True
 pre_lgb_params = {
         'objective': 'binary',
-        'boosting_type': 'gbdt',
-        'subsample': 0.8,
-        'colsample_bytree': 0.8,
+        'boosting_type': 'rf',
+        'subsample': 0.1,
+        'colsample_bytree': 0.6,
         'num_leaves': 127,
         'max_depth': 8,
         'bagging_freq': 1,
-        'n_jobs': 4
+        'n_jobs': 4,
+        'verbose':-1
 }
 
-DATA_BALANCE_SWITCH = True
+DATA_BALANCE_SWITCH = False
 SAMPLE_UP_OR_DOWN = "down"
+
+DATA_DOWNSAMPLING_SWITCH = True
+DOWNSAMPLING_RATIO = 0.7
 
 ENSEMBLE = True
 ENSEMBLE_OBJ = 2  # currently 2 is better than 3
+

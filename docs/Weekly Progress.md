@@ -94,60 +94,15 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
       The larger the WINDOW_SIZE, the more temporal information can be used.
       因此会增加四个超参数。
       在merge.py中代码修改如下，已实现，并于20190516晚上提交一版, rank:
-      
-      ```python
-      def temporal_join(u, v, v_name, key, time_col):
-          timer = Timer()
-      
-          window_size = CONSTANT.WINDOW_SIZE if len(u) * 0.001 < CONSTANT.WINDOW_SIZE else int(len(u) * 0.001)
-          hash_max = CONSTANT.HASH_MAX if len(u) / CONSTANT.HASH_MAX > 100.0 else int(len(u) / 100.0)
-      
-          if isinstance(key, list):
-              assert len(key) == 1
-              key = key[0]
-      
-          tmp_u = u[[time_col, key]]
-          timer.check("select")
-      
-          tmp_u = pd.concat([tmp_u, v], keys=['u', 'v'], sort=False)
-          timer.check("concat")
-      
-          rehash_key = f'rehash_{key}'
-          tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x) % hash_max)
-          timer.check("rehash_key")
-      
-          tmp_u.sort_values(time_col, inplace=True)
-          timer.check("sort")
-      
-          agg_funcs = {col: Config.aggregate_op(col) for col in v if col != key
-                       and not col.startswith(CONSTANT.TIME_PREFIX)
-                       and not col.startswith(CONSTANT.MULTI_CAT_PREFIX)}
-      
-          tmp_u = tmp_u.groupby(rehash_key).rolling(window_size).agg(agg_funcs)
-          timer.check("group & rolling & agg")
-      
-          tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
-          timer.check("reset_index")
-      
-          tmp_u.columns = tmp_u.columns.map(lambda a:
-              f"{CONSTANT.NUMERICAL_PREFIX}{a[1].upper()}_ROLLING5({v_name}.{a[0]})")
-      
-          if tmp_u.empty:
-              log("empty tmp_u, return u")
-              return u
-      
-          ret = pd.concat([u, tmp_u.loc['u']], axis=1, sort=False)
-          timer.check("final concat")
-      
-          del tmp_u
-      
-          return ret
-      ```
    2. 增加PCA降维：将经过各种join后的主表的所有特征输入PCA算法，输出信息占比85%以上的降维特征
    3. 混合PCA降维加上原始特征
    4. 对于原始单列特征增加更多aggregation操作
 
+<<<<<<< HEAD
 超参数调优修改思路：
+=======
+- [x] 超参数调优修改思路：
+>>>>>>> 0c090e1b8bebb25a2d2e595536b17f0704beb444
    1. 测试class imbalance相关参数
       a. 固定参数："is_unbalance": True
       	->ADE提升明显，C严重下滑，总排名下滑，暂时关闭，**待后续研究**
@@ -186,6 +141,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - feature selection with null importance
         - [https://www.kaggle.com/ogrellier/feature-selection-with-null-importances](https://www.kaggle.com/ogrellier/feature-selection-with-null-importances)
         - 这个方法统计特性貌似很好，但是很费时，可以试一下
+        - **(已实现，但是相当费时)**
     - bagging methods: 5-kfolds feature importance average / bagging with different lightGBM model
 4. Numerical Feature: a real value.
     - preprocessing methods: standardization
@@ -215,6 +171,10 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - Use Tree-Based Algorithms: using tree-based algorithms. Decision trees often perform well on imbalanced datasets because their hierarchical structure allows them to learn signals from both classes.
 10. Feature embedding: might utilize DNN to embed the selected feature???
 
+出现的问题：
+
+1. 发现训练集和测试集上auc的表现差很多
+
 超参数调优修改思路：
 
 1. 提速测试：保存超参数调优中训练的模型，最终预测时，直接读取ensemble中的模型，继续训练，num_boost_round由500降到300
@@ -231,3 +191,5 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 | 提速                              | 0.715636 | 0.825862 | 0.734846 | 0.627270 | 0.647908 | 2550.55 |
 | 提速+防过拟合(maximize num_trees) | 0.716522 | 0.822976 | 0.715017 | 0.623435 | 0.630734 | 2238.36 |
 | 提速+防过拟合(minimize num_trees) | 0.715263 | 0.825259 | 0.734847 | 0.621791 | 0.633713 | 2140.54 |
+
+
