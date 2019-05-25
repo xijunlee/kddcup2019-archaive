@@ -179,6 +179,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - feature selection with null importance
         - [https://www.kaggle.com/ogrellier/feature-selection-with-null-importances](https://www.kaggle.com/ogrellier/feature-selection-with-null-importances)
         - 这个方法统计特性貌似很好，但是很费时，可以试一下
+        - **(已实现，但是相当费时)**
     - bagging methods: 5-kfolds feature importance average / bagging with different lightGBM model
 4. Numerical Feature: a real value.
     - preprocessing methods: standardization
