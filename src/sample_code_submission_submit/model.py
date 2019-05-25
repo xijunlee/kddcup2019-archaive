@@ -14,7 +14,8 @@ from automl import predict, train, validate
 from CONSTANT import MAIN_TABLE_NAME, \
     REDUCTION_SWITCH, \
     FEATURE_SELECTION_SWITCH, \
-    DATA_BALANCE_SWITCH
+    DATA_BALANCE_SWITCH, \
+    DATA_DOWNSAMPLING_SWITCH
 from merge import merge_table
 from preprocess import clean_df, \
     clean_tables, \
@@ -23,7 +24,8 @@ from preprocess import clean_df, \
     data_reduction_test, \
     feature_selection, \
     data_balance, \
-    feature_selection_complex
+    feature_selection_complex, \
+    data_downsampling
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
 
@@ -49,6 +51,8 @@ class Model:
         feature_engineer(X, self.config)
         if DATA_BALANCE_SWITCH:
             X, y = data_balance(X, y, self.config)
+        if DATA_DOWNSAMPLING_SWITCH:
+            X, y = data_downsampling(X, y, self.config)
         if FEATURE_SELECTION_SWITCH:
             X, self.selected_features = feature_selection_complex(X, y, self.config)
         if REDUCTION_SWITCH:

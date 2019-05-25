@@ -121,6 +121,12 @@ def data_reduction_test(df, scaler, pca):
     return ret_df
 
 @timeit
+def data_downsampling(X, y, config, seed=None):
+    origin_size = len(X)
+    X["class"] = y
+    df_sampled = resample(X, replace=False, n_samples=int(origin_size*CONSTANT.DOWNSAMPLING_RATIO))
+    return df_sampled.drop(columns=["class"]), df_sampled["class"]
+@timeit
 def data_balance(X, y, config, seed=None):
     # balance the raw dataset if there exist imbalance class in it.
 
@@ -226,7 +232,7 @@ def feature_selection_complex(X_raw, y_raw, config, seed=None):
     actual_imp_df = get_feature_importances(X, y, shuffle=False)
 
     null_imp_df = pd.DataFrame()
-    nb_runs = 80
+    nb_runs = 25
     for i in range(nb_runs):
         # Get current run importances
         imp_df = get_feature_importances(X, y, shuffle=True)
