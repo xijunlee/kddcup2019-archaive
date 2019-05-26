@@ -98,11 +98,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
    3. 混合PCA降维加上原始特征
    4. 对于原始单列特征增加更多aggregation操作
 
-<<<<<<< HEAD
-超参数调优修改思路：
-=======
 - [x] 超参数调优修改思路：
->>>>>>> 0c090e1b8bebb25a2d2e595536b17f0704beb444
    1. 测试class imbalance相关参数
       a. 固定参数："is_unbalance": True
       	->ADE提升明显，C严重下滑，总排名下滑，暂时关闭，**待后续研究**
@@ -127,9 +123,9 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
             b. https://github.com/MetaLearners/NIPS-2018-AutoML-Challenge (NIPS2018, 2nd)
             c. https://github.com/jungtaekkim/automl-challenge-2018 (PAKDD2018, 2nd)
 
-# Time Window: 20190521~20190527
+## Time Window: 20190521~20190527
 
-特征工程修改思路：
+### 特征工程修改思路：
 1. random sampling, or data subsampling: 不一定要用到给定数据集的所有数据，resample一些出来学习，提高效率；
     - data ubsampling **(已实现)**
     - data downsampling **(已实现，已提交)**
@@ -171,11 +167,11 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - Use Tree-Based Algorithms: using tree-based algorithms. Decision trees often perform well on imbalanced datasets because their hierarchical structure allows them to learn signals from both classes.
 10. Feature embedding: might utilize DNN to embed the selected feature???
 
-出现的问题：
+#### 出现的问题：
 
 1. 发现训练集和测试集上auc的表现差很多
 
-超参数调优修改思路：
+### 超参数调优修改思路：
 
 1. 提速测试：保存超参数调优中训练的模型，最终预测时，直接读取ensemble中的模型，继续训练，num_boost_round由500降到300
 
