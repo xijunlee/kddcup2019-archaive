@@ -50,19 +50,16 @@ class Model:
     @timeit
     def fit(self, Xs, y, time_ramain):
         self.tables = copy.deepcopy(Xs)
-
         clean_tables(Xs)
         X = merge_table(Xs, self.config)
+        if DATA_DOWNSAMPLING_SWITCH:
+            X, y = data_downsampling(X, y, self.config)
         clean_df(X)
         feature_engineer(X, self.config)
         if DATA_BALANCE_SWITCH:
             X, y = data_balance(X, y, self.config)
-        if DATA_DOWNSAMPLING_SWITCH:
-            X, y = data_downsampling(X, y, self.config)
         if FEATURE_SELECTION_SWITCH:
-            X, self.selected_features = feature_selection_complex(X, y, self.config)
-        if REDUCTION_SWITCH:
-            X, self.scaler, self.pca = data_reduction_train(X)
+            X, self.selected_features = feature_selection(X, y, self.config)
         train(X, y, self.config)
 
     @timeit
@@ -81,8 +78,6 @@ class Model:
         X = X[X.index.str.startswith("test")]
         X.index = X.index.map(lambda x: int(x.split('_')[1]))
         X.sort_index(inplace=True)
-        if REDUCTION_SWITCH:
-            X = data_reduction_test(X, self.scaler, self.pca)
         if FEATURE_SELECTION_SWITCH:
             X = X[self.selected_features]
         result = predict(X, self.config)

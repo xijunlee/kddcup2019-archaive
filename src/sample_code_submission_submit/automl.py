@@ -8,7 +8,9 @@ from hyperopt import STATUS_OK, Trials, hp, space_eval, tpe
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from deap import creator, tools
-from CONSTANT import ENSEMBLE, ENSEMBLE_OBJ
+from CONSTANT import ENSEMBLE, \
+    ENSEMBLE_OBJ, \
+    train_lgb_params
 
 from util import Config, log, timeit
 
@@ -33,14 +35,7 @@ def validate(preds, y_path) -> np.float64:
 
 @timeit
 def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
-    params = {
-        "objective": "binary",
-        "metric": "auc",
-        "verbosity": -1,
-        "seed": 1,
-        "num_threads": 4,
-        # "is_unbalance": True
-    }
+    params = train_lgb_params
 
     X_sample, y_sample = data_sample(X, y, 30000)
 

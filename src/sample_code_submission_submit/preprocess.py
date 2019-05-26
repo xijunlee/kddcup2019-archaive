@@ -48,42 +48,51 @@ def feature_engineer(df, config):
 def transform_datetime(df, config):
     for c in [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]:
         df.drop(c, axis=1, inplace=True)
-
+    return df
 
 @timeit
 def transform_categorical_hash(df):
 
-    # categorical encoding mechanism 1:
-    # for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
-    #     # df[c] = df[c].apply(lambda x: int(x))
-    #     df[c], _ = pd.factorize(df[c])
-    #     # Set feature type as categorical
-    #     df[c] = df[c].astype('category')
-    #
+    cat_param = CONSTANT.cat_hash_params["cat"]
 
-    # categorical encoding mechanism 2:
-    # categorical_feats = [
-    #     col for col in df.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
-    # ]
-    #
-    # # Specify the columns to encode then fit and transform
-    # encoder = ce.backward_difference.BackwardDifferenceEncoder(cols=categorical_feats)
-    # encoder.fit(df, verbose=1)
-    # df = encoder.transform(df)
+    if cat_param["method"] == "fact":
+        # categorical encoding mechanism 1:
+        for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
+            # df[c] = df[c].apply(lambda x: int(x))
+            df[c], _ = pd.factorize(df[c])
+            # Set feature type as categorical
+            df[c] = df[c].astype('category')
+    elif cat_param["method"] == "bd":
+        # categorical encoding mechanism 2:
+        categorical_feats = [
+            col for col in df.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
+        ]
 
-    # categorical encoding mechanism 3:
-    for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
-        # df[c] = df[c].apply(lambda x: int(x))
-        # df[c], _ = pd.factorize(df[c])
-        # calculate the frequency of item
-        val_freq = df[c].value_counts(normalize=True).to_dict()
-        df[c] = df[c].map(val_freq)
-        df[c] = df[c].astype('float')
-
+        # Specify the columns to encode then fit and transform
+        encoder = ce.backward_difference.BackwardDifferenceEncoder(cols=categorical_feats)
+        encoder.fit(df, verbose=1)
+        df = encoder.transform(df)
+    elif cat_param["method"] == "freq":
+        # categorical encoding mechanism 3:
+        for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
+            # calculate the frequency of item
+            val_freq = df[c].value_counts(normalize=True).to_dict()
+            df[c] = df[c].map(val_freq)
+            df[c] = df[c].astype('float')
 
     for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
         df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
         # TODO: multi value categorical feature -> ?
+        # x = df[c].str.split(r',', expand=True)\
+        #         .stack()\
+        #         .reset_index(level=1, drop=True)\
+        #         .to_frame(c)
+        # cleaned = df[c].str.split(r',', expand=True).stack()
+        # cleaned = pd.get_dummies(cleaned, prefix='c', columns=c).groupby(level=0).sum()
+        # df_r.drop(columns=c, inplace=True)
+        # df_r = pd.concat([df_r, cleaned], axis=1)
+
+
 @timeit
 def data_reduction_train(df):
     matrix = df.as_matrix()
@@ -126,6 +135,7 @@ def data_downsampling(X, y, config, seed=None):
     X["class"] = y
     df_sampled = resample(X, replace=False, n_samples=int(origin_size*CONSTANT.DOWNSAMPLING_RATIO))
     return df_sampled.drop(columns=["class"]), df_sampled["class"]
+
 @timeit
 def data_balance(X, y, config, seed=None):
     # balance the raw dataset if there exist imbalance class in it.
@@ -171,16 +181,21 @@ def data_balance(X, y, config, seed=None):
 
 @timeit
 def feature_selection(X, y, config, seed=None):
-    # categorical_feats = [
-    #     col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
-    # ]
+
+    if CONSTANT.cat_hash_params["cat"]["method"] == "fact":
+        categorical_feats = [
+            col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
+        ]
+    else:
+        categorical_feats = []
+
     train_features = X.columns
     # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
     dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True)
     lgb_params = CONSTANT.pre_lgb_params
     lgb_params["seed"] = seed
     # Fit the model
-    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
+    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200, categorical_feature=categorical_feats)
     # if there still exist categorical features
     #clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200, categorical_feature=categorical_feats)
 
@@ -272,5 +287,3 @@ def feature_selection_complex(X_raw, y_raw, config, seed=None):
 
     return X_raw[selected_features], selected_features
 
-def get_feature_importance(df):
-    pass

@@ -179,7 +179,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
 2. 防止过拟合测试：选取weak model组成ensemble时，将最小化weak model中树的个数作为考量目标之一。
 
-   ->排名53，代码已注释，**怀疑ensemble选10 out of 5不合理，ensemble需优化**
+   ->排名53，代码已注释，**怀疑ensemble选5 out of 10不合理，ensemble需优化**
 
 | Algorithms                        | A        | B        | C        | D        | E        | Time    |
 | --------------------------------- | -------- | -------- | -------- | -------- | -------- | ------- |
