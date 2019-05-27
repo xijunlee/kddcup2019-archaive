@@ -54,6 +54,7 @@ def transform_datetime(df, config):
 def transform_categorical_hash(df):
 
     cat_param = CONSTANT.cat_hash_params["cat"]
+    multi_cat_param = CONSTANT.cat_hash_params["multi_cat"]
 
     if cat_param["method"] == "fact":
         # categorical encoding mechanism 1:
@@ -80,8 +81,13 @@ def transform_categorical_hash(df):
             df[c] = df[c].map(val_freq)
             df[c] = df[c].astype('float')
 
-    for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
-        df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
+    if multi_cat_param["method"] == "base":
+        for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
+            df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
+    elif multi_cat_param["method"] == "count":
+        for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
+            df[c] = df[c].apply(lambda x: len(x.split(',')))
+
         # TODO: multi value categorical feature -> ?
         # x = df[c].str.split(r',', expand=True)\
         #         .stack()\

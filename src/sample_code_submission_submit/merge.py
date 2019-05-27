@@ -42,8 +42,10 @@ def join(u, v, v_name, key, type_):
 def temporal_join(u, v, v_name, key, time_col):
     timer = Timer()
 
-    window_size = CONSTANT.WINDOW_SIZE if len(u) * 0.001 < CONSTANT.WINDOW_SIZE else int(len(u) * 0.001)
-    hash_max = CONSTANT.HASH_MAX if len(u) / CONSTANT.HASH_MAX > 100.0 else int(len(u) / 100.0)
+    window_size = CONSTANT.WINDOW_SIZE if len(u) * CONSTANT.WINDOW_RATIO < CONSTANT.WINDOW_SIZE \
+        else int(len(u) * CONSTANT.WINDOW_RATIO)
+    hash_max = CONSTANT.HASH_MAX if len(u) / CONSTANT.HASH_MAX > CONSTANT.HASH_BIN \
+        else int(len(u) / CONSTANT.HASH_BIN)
 
     # window_size = CONSTANT.WINDOW_SIZE
     # hash_max = CONSTANT.HASH_MAX
