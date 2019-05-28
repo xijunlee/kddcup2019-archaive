@@ -86,6 +86,9 @@ def transform_categorical_hash(df):
     if multi_cat_param["method"] == 'base':
         for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
             df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
+    elif multi_cat_param["method"] == "count":
+        for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
+            df[c] = df[c].apply(lambda x: len(x.split(',')))
     elif multi_cat_param["method"] == 'freq':
         for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
             multi_cat_expand = df[c].astype(str).str.split(',', expand=True).stack() \
@@ -97,6 +100,16 @@ def transform_categorical_hash(df):
             multi_cat_expand.columns = multi_cat_expand.columns.map('|'.join).str.strip('|')
             df.drop(columns=c, inplace=True)
             df = pd.concat([df, multi_cat_expand], axis=1)
+
+    # TODO: multi value categorical feature -> ?
+    # x = df[c].str.split(r',', expand=True)\
+    #         .stack()\
+    #         .reset_index(level=1, drop=True)\
+    #         .to_frame(c)
+    # cleaned = df[c].str.split(r',', expand=True).stack()
+    # cleaned = pd.get_dummies(cleaned, prefix='c', columns=c).groupby(level=0).sum()
+    # df_r.drop(columns=c, inplace=True)
+    # df_r = pd.concat([df_r, cleaned], axis=1)
 
     return df
 

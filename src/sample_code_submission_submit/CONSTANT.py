@@ -24,7 +24,9 @@ There must exist a relationship between HASH_MAX and WINDOW_SIZE:
 2. The larger the WINDOW_SIZE, the more temporal information can be used.
 '''
 HASH_MAX = 200
+HASH_BIN = 100
 WINDOW_SIZE = 5
+WINDOW_RATIO = 0.001
 
 # Switch and parameter of data reduction
 REDUCTION_SWITCH = False
@@ -65,7 +67,7 @@ cat_hash_params = {
         "method": "fact"#, "bd", "freq"
     },
     "multi_cat": {
-        "method": "freq"
+        "method": "freq"#, "count", "base"
     }
 }
 
