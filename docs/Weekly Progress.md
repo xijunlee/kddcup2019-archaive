@@ -198,7 +198,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - For a random variable X, standardization means converting X to its standardized random variable
 3. Multi-value Categorical Feature: a set of integers, split by the comma.
     - preprocessing methods: Hash coding and frequency coding
-    - 统计multi-value每一行中出现value的个数，作为该行的值**（已实现）**
+    - 统计multi-value每一行中出现value的个数，作为该行的值**(已实现)**
 4. Time Feature: an integer describing time information.
     - preprocessing methods: Using second-order features. What is second-order feature ???
 5. First-order feature engineer: frequency encoding of categorical features
