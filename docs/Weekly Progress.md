@@ -199,21 +199,22 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 3. Multi-value Categorical Feature: a set of integers, split by the comma.
     - preprocessing methods: Hash coding and frequency coding
     - 统计multi-value每一行中出现value的个数，作为该行的值**(已实现)**
+    - frequency encoding of multi-value categorical feature**(已实现)**
 4. Time Feature: an integer describing time information.
-    - preprocessing methods: Using second-order features. What is second-order feature ???
-5. First-order feature engineer: frequency encoding of categorical features
+    - preprocessing methods: Using second-order features. ** What is second-order feature **???
+5. First-order feature engineer: frequency encoding of categorical features **(已实现)**
 6. High-order feature engineer:
     - predefine a set of binary transformations based on prior knowledge
     - apply each type of transformation on the original feature sets to generate new features in an expansion-reduction fashion
     - such as:
-        - numerical-numerical: +,-,*,/
+        - numerical-numerical: +,-,*,/ **(已实现)**
         - categorical-numerical: num_mean_groupby_cat
         - categorical-categorical: cat_cat_combine, cat_nunique_groupby_cat
         - categorical-temporal: time_difference_groupby_cat
     - key steps:
         1. pre-selection: select features used for feature generation based on prior knowledge
         2. feature generation: generate new feature with all feasible pairs of the pre-selected features
-        3. post-selection: select generated features based on the performance and feature importance of a coarsely trained GBDT model
+        3. post-selection: select generated features based on the performance and feature importance of a coarsely trained GBDT model **(已实现)**
 
 ### 超参数调优修改思路：
 1. 可能需要联合所有参数进行调优（先别管超不超时，通过搜索超参的方法看能不能提高K,L的精度）
