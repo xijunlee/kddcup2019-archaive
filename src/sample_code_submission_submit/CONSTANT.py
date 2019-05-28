@@ -30,7 +30,7 @@ WINDOW_RATIO = 0.001
 
 # Switch and parameter of data reduction
 REDUCTION_SWITCH = False
-FEATURE_GENERATION_SWITCH = True
+FEATURE_GENERATION_SWITCH = False
 VARIANCE_RATIO = 0.95 # the VARIANCE RAITO is used in PCA
 
 # Switch and parameter of feature selection
@@ -52,7 +52,7 @@ pre_lgb_params = {
 DATA_BALANCE_SWITCH = False
 SAMPLE_UP_OR_DOWN = "down"
 
-BAYESIAN_OPT = False
+BAYESIAN_OPT = True
 # Switch and parameter of data downsampling
 DATA_DOWNSAMPLING_SWITCH = False
 DOWNSAMPLING_RATIO = 0.8
