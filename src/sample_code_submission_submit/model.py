@@ -17,7 +17,10 @@ from CONSTANT import MAIN_TABLE_NAME, \
     FEATURE_GENERATION_SWITCH, \
     FEATURE_SELECTION_SWITCH, \
     DATA_BALANCE_SWITCH, \
-    BAYESIAN_OPT
+    BAYESIAN_OPT,\
+    DATA_DOWNSAMPLING_SWITCH, \
+    ENSEMBLE, \
+    ENSEMBLE_OBJ
 from merge import merge_table
 from preprocess import clean_df, \
     clean_tables, \
@@ -27,7 +30,8 @@ from preprocess import clean_df, \
     feature_generation, \
     feature_selection, \
     data_balance, \
-    feature_selection_complex
+    feature_selection_complex, \
+    data_downsampling
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
 
@@ -41,9 +45,13 @@ class Model:
     def __init__(self, info):
         self.config = Config(info)
         self.tables = None
-        # for NSGA-II selection
-        creator.create("FitnessMin", base.Fitness, weights=(-1, -1))
-        creator.create("Individual", dict, fitness=creator.FitnessMin)
+        if ENSEMBLE:
+            # for NSGA-II selection
+            if ENSEMBLE_OBJ == 3:
+                creator.create("FitnessMin", base.Fitness, weights=(-1, -1, -1))
+            else:
+                creator.create("FitnessMin", base.Fitness, weights=(-1, -1))
+            creator.create("Individual", dict, fitness=creator.FitnessMin)
         self.pca = None
         self.scaler = None
         self.selected_features = None
@@ -51,9 +59,10 @@ class Model:
     @timeit
     def fit(self, Xs, y, time_ramain):
         self.tables = copy.deepcopy(Xs)
-
         clean_tables(Xs)
         X = merge_table(Xs, self.config)
+        if DATA_DOWNSAMPLING_SWITCH:
+            X, y = data_downsampling(X, y, self.config)
         clean_df(X)
         X = feature_engineer(X, self.config)
         if DATA_BALANCE_SWITCH:
@@ -61,7 +70,7 @@ class Model:
         if FEATURE_GENERATION_SWITCH:
             X, self.random_features = feature_generation(X)
         if FEATURE_SELECTION_SWITCH:
-            X, self.selected_features = feature_selection_complex(X, y, self.config)
+            X, self.selected_features = feature_selection(X, y, self.config)
         if REDUCTION_SWITCH:
             X, self.scaler, self.pca = data_reduction_train(X)
         train(X, y, self.config)
@@ -82,12 +91,12 @@ class Model:
         X = X[X.index.str.startswith("test")]
         X.index = X.index.map(lambda x: int(x.split('_')[1]))
         X.sort_index(inplace=True)
-        if REDUCTION_SWITCH:
-            X = data_reduction_test(X, self.scaler, self.pca)
         if FEATURE_GENERATION_SWITCH:
             X = feature_generation(X, self.random_features)
         if FEATURE_SELECTION_SWITCH:
             X = X[self.selected_features]
+        if REDUCTION_SWITCH:
+            X = data_reduction_test(X, self.scaler, self.pca)
         result = predict(X, self.config)
 
         return pd.Series(result)

@@ -77,11 +77,11 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
   
   2. 根据NCL，选取最好的5组参数 (NSGA-II) 
   
-     | Algorithms                  | Score        |
-     | --------------------------- | ------------ |
-     | baseline                    | 0.7121998069 |
-     | ensemble_AUC (top5)         | 0.7175696518 |
-     | ensemble_NCL (NSGA-II top5) | 0.7185983299 |
+     | Algorithms                  | A        | B        | C        | D        | E        |
+     | --------------------------- | -------- | -------- | -------- | -------- | -------- |
+     | baseline                    | 0.719553 | 0.825020 | 0.706694 | 0.621964 | 0.647131 |
+     | ensemble_AUC (top5)         | 0.717570 | 0.826221 | 0.720492 | 0.626631 | 0.637492 |
+     | ensemble_NCL (NSGA-II top5) | 0.718598 | 0.826619 | 0.720492 | 0.624667 | 0.637492 |
   
      
   
@@ -100,25 +100,32 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
 - [x] 超参数调优修改思路：
    1. 测试class imbalance相关参数
-   	a. 固定参数：is_unbalance = True
-   	->性能降低
-   	b. 自动调参：scale_pos_weight = hp.loguniform('scale_pos_weight', np.log(np.sum(y == 0)/np.sum(y == 1)), 0) 
-   	if np.sum(y == 0)/(np.sum(y == 1) + 0.0001) > 1 
-   	else hp.loguniform('scale_pos_weight', 0, np.log(np.sum(y == 0)/np.sum(y == 1))),weight
-   	->性能降低，但优于固定参数
+      a. 固定参数："is_unbalance": True
+      	->ADE提升明显，C严重下滑，总排名下滑，暂时关闭，**待后续研究**
+      b. 自动调参：![1558700308068](C:\Users\Austin\AppData\Roaming\Typora\typora-user-images\1558700308068.png)
+       ->AE提升，CD下滑明显，已关闭
+
+| Algorithms   | A        | B        | C            | D        | E        |
+| ------------ | -------- | -------- | ------------ | -------- | -------- |
+| ensemble_NCL | 0.718598 | 0.826619 | 0.720492     | 0.624667 | 0.637492 |
+| 固定参数     | 0.719159 | 0.825711 | **0.610744** | 0.626752 | 0.647908 |
+| 自动调参     | 0.718620 | 0.824533 | 0.703756     | 0.620960 | 0.647126 |
+
+
    2. 文献阅读 
-   Efficient and Robust Automated Machine Learning
-   http://papers.nips.cc/paper/5872-efficient-and-robust-automated-machine-learning.pdf
-   a. 自动超参调优算法：random-forest based SMAC （Baysian optimization），下周进行测试对比TPE
-   b. 集成学习选择方法：ensemble selection，下周进行测试对比NCL
+         Efficient and Robust Automated Machine Learning
+            http://papers.nips.cc/paper/5872-efficient-and-robust-automated-machine-learning.pdf
+            a. 自动超参调优算法：random-forest based SMAC （Baysian optimization），下周进行测试对比TPE
+            b. 集成学习选择方法：ensemble selection，下周进行测试对比NCL
+
    3. 搜集往届获奖方案
-   a. https://github.com/flytxtds/AutoGBT (NIPS2018, 1st)
-   b. https://github.com/MetaLearners/NIPS-2018-AutoML-Challenge (NIPS2018, 2nd)
-   c. https://github.com/jungtaekkim/automl-challenge-2018 (PAKDD2018, 2nd)
+         a. https://github.com/flytxtds/AutoGBT (NIPS2018, 1st)
+            b. https://github.com/MetaLearners/NIPS-2018-AutoML-Challenge (NIPS2018, 2nd)
+            c. https://github.com/jungtaekkim/automl-challenge-2018 (PAKDD2018, 2nd)
 
-# Time Window: 20190521~20190527
+## Time Window: 20190521~20190527
 
-特征工程修改思路：
+### 特征工程修改思路：
 1. random sampling, or data subsampling: 不一定要用到给定数据集的所有数据，resample一些出来学习，提高效率；
     - data ubsampling **(已实现)**
     - data downsampling **(已实现，已提交)**
@@ -160,5 +167,25 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - Use Tree-Based Algorithms: using tree-based algorithms. Decision trees often perform well on imbalanced datasets because their hierarchical structure allows them to learn signals from both classes.
 10. Feature embedding: might utilize DNN to embed the selected feature???
 
-出现的问题：
+#### 出现的问题：
+
 1. 发现训练集和测试集上auc的表现差很多
+
+### 超参数调优修改思路：
+
+1. 提速测试：保存超参数调优中训练的模型，最终预测时，直接读取ensemble中的模型，继续训练，num_boost_round由500降到300
+
+   ->排名39，auc和time均得到优化，已保留
+
+2. 防止过拟合测试：选取weak model组成ensemble时，将最小化weak model中树的个数作为考量目标之一。
+
+   ->排名53，代码已注释，**怀疑ensemble选5 out of 10不合理，ensemble需优化**
+
+| Algorithms                        | A        | B        | C        | D        | E        | Time    |
+| --------------------------------- | -------- | -------- | -------- | -------- | -------- | ------- |
+| ensemble_NCL                      | 0.718598 | 0.826619 | 0.720492 | 0.624667 | 0.637492 | 2626.67 |
+| 提速                              | 0.715636 | 0.825862 | 0.734846 | 0.627270 | 0.647908 | 2550.55 |
+| 提速+防过拟合(maximize num_trees) | 0.716522 | 0.822976 | 0.715017 | 0.623435 | 0.630734 | 2238.36 |
+| 提速+防过拟合(minimize num_trees) | 0.715263 | 0.825259 | 0.734847 | 0.621791 | 0.633713 | 2140.54 |
+
+
