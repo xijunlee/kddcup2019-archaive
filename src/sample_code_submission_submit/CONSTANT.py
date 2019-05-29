@@ -39,22 +39,23 @@ pre_lgb_params = {
         'objective': 'binary',
         'boosting_type': 'rf',
         'metric': 'auc',
-        'subsample': 0.623,
-        'colsample_bytree': 0.623,
-        'num_leaves': 200,
-        'max_depth': 10,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
+        'num_leaves': 100,
+        'max_depth': 8,
         'bagging_freq': 1,
         'n_jobs': 4,
         'verbose':-1
 }
 feature_selection_param = {
-    "method": "rfe" # 3 options: "imp", "nhp", "rfe"
+    "method": "imp" # 3 options: "imp", "nhp", "rfe"
                       # "imp" for feature importance, "nh" for null hypothesis, "rfe" for recursive feature elimination
 }
 
 # Switch and parameter of data balance
-DATA_BALANCE_SWITCH = False
+DATA_BALANCE_SWITCH = True
 SAMPLE_UP_OR_DOWN = "down"
+
 
 BAYESIAN_OPT = False
 # Switch and parameter of data downsampling
@@ -86,3 +87,16 @@ train_lgb_params = {
         # "is_unbalance": True
 }
 
+'''
+All kinds of seed
+'''
+# HYPEROPT_SEED = None
+# DOWNSAMPLING_SEED = None
+# DATA_BALANCE_SEED = None
+# FEATURE_SELECTION_SEED = None
+SEED = None
+HYPEROPT_SEED = SEED
+DOWNSAMPLING_SEED = SEED
+DATA_BALANCE_SEED = SEED
+FEATURE_SELECTION_SEED = SEED
+DATA_SPLIT_SEED = SEED

@@ -152,14 +152,14 @@ def data_reduction_test(df, scaler, pca):
     return ret_df
 
 @timeit
-def data_downsampling(X, y, config, seed=None):
+def data_downsampling(X, y, config, seed=CONSTANT.DOWNSAMPLING_SEED):
     origin_size = len(X)
     X["class"] = y
     df_sampled = resample(X, replace=False, n_samples=int(origin_size*CONSTANT.DOWNSAMPLING_RATIO))
     return df_sampled.drop(columns=["class"]), df_sampled["class"]
 
 @timeit
-def data_balance(X, y, config, seed=None):
+def data_balance(X, y, config, seed=CONSTANT.DATA_BALANCE_SEED):
     # balance the raw dataset if there exist imbalance class in it.
 
     origin_size = len(X)
@@ -188,9 +188,10 @@ def data_balance(X, y, config, seed=None):
                               random_state=seed)
     else:
         # Downsample majority class
+        n_sample = int(2*len(df_minority)) if len(df_majority) > 4*len(df_minority) else len(df_minority)
         df_majority_downsampled = resample(df_majority,
                                            replace=False,  # sample without replacement
-                                           n_samples=len(df_minority),
+                                           n_samples=n_sample,
                                            random_state=seed)  # to match minority class
 
         # Combine minority class with downsampled majority class
@@ -232,15 +233,15 @@ def feature_generation(X, random_features=None, seed=None):
         return X
 
 @timeit
-def feature_selection(X_raw, y_raw, config, seed=None):
+def feature_selection(X_raw, y_raw, config, seed=CONSTANT.FEATURE_SELECTION_SEED):
     method = CONSTANT.feature_selection_param["method"]
 
     if method == "imp":
-        return _imp_feature_selection(X_raw, y_raw, config)
+        return _imp_feature_selection(X_raw, y_raw, config, seed)
     elif method == "nh":
-        return _nh_feature_selection(X_raw, y_raw, config)
+        return _nh_feature_selection(X_raw, y_raw, config, seed)
     elif method == "rfe":
-        return _rfe_feature_selection(X_raw, y_raw, config)
+        return _rfe_feature_selection(X_raw, y_raw, config, seed)
 
 @timeit
 def _rfe_feature_selection(X_raw, y_raw, config, seed=None):
@@ -280,7 +281,6 @@ def _rfe_feature_selection(X_raw, y_raw, config, seed=None):
 
     print(feature_rank)
 
-
 @timeit
 def _imp_feature_selection(X_raw, y_raw, config, seed=None):
     '''
@@ -292,8 +292,8 @@ def _imp_feature_selection(X_raw, y_raw, config, seed=None):
     :return:
     '''
 
-    X, y = data_downsampling(X_raw, y_raw, config)
-
+    # X, y = data_downsampling(X_raw, y_raw, config)
+    X, y = X_raw, y_raw
     if CONSTANT.cat_hash_params["cat"]["method"] == "fact":
         categorical_feats = [
             col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
@@ -318,10 +318,10 @@ def _imp_feature_selection(X_raw, y_raw, config, seed=None):
     imp_df["importance_split"] = clf.feature_importance(importance_type='split')
     imp_df['trn_score'] = roc_auc_score(y, clf.predict(X))
 
-    # imp_df.sort_values(by=["importance_gain", "importance_split"], ascending=False, inplace=True)
+    # imp_df.sort_values(by=["importance_gain"], ascending=False, inplace=True)
 
     selected_features = []
-    selected_features = imp_df.query("importance_split > 0")["feature"]
+    selected_features = imp_df.query("importance_gain > 0")["feature"]
 
     return X_raw[selected_features], selected_features
 
@@ -337,8 +337,8 @@ def _nh_feature_selection(X_raw, y_raw, config, seed=None):
     :return:
     '''
 
-    X, y = data_balance(X_raw, y_raw, config)
-    # X, y = X_raw, y_raw
+    # X, y = data_balance(X_raw, y_raw, config)
+    X, y = X_raw, y_raw
     def get_feature_importances(X, y, shuffle, seed=None):
         # Gather real features
         train_features = X.columns

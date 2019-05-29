@@ -58,14 +58,17 @@ class Model:
     @timeit
     def fit(self, Xs, y, time_ramain):
         self.tables = copy.deepcopy(Xs)
+        main_table = Xs[MAIN_TABLE_NAME]
+        if DATA_BALANCE_SWITCH:
+            main_table, y = data_balance(main_table, y, self.config)
+        Xs[MAIN_TABLE_NAME] = main_table
         clean_tables(Xs)
         X = merge_table(Xs, self.config)
-        if DATA_DOWNSAMPLING_SWITCH:
-            X, y = data_downsampling(X, y, self.config)
+
         clean_df(X)
         X = feature_engineer(X, self.config)
-        if DATA_BALANCE_SWITCH:
-            X, y = data_balance(X, y, self.config)
+        # if DATA_BALANCE_SWITCH:
+        #     X, y = data_balance(X, y, self.config)
         if FEATURE_GENERATION_SWITCH:
             X, self.random_features = feature_generation(X)
         if FEATURE_SELECTION_SWITCH:
