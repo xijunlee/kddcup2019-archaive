@@ -220,6 +220,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - feature importance based on tree model**(已在lightgbm中实现)**
     - correlation matrix with heat map
     - Recursive Feature Elimination (RFE) **(已实现)**
+8. 还是利用下featuretools这个工具
 
 ### 超参数调优修改思路：
 1. 可能需要联合所有参数进行调优（先别管超不超时，通过搜索超参的方法看能不能提高K,L的精度）
