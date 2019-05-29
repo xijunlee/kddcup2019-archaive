@@ -37,7 +37,7 @@ def validate(preds, y_path) -> np.float64:
 def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
     params = train_lgb_params
 
-    X_sample, y_sample = data_sample(X, y, 30000)
+    X_sample, y_sample = data_sample(X, y)
 
     X_train, X_val, y_train, y_val = data_split(X, y, 0.1)
 
@@ -83,12 +83,12 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
     valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=False)
 
     space = {
-        "learning_rate": hp.loguniform("learning_rate", np.log(0.01), np.log(0.5)),
-        "max_depth": hp.choice("max_depth", [-1, 2, 3, 4, 5, 6]),
-        "num_leaves": hp.choice("num_leaves", np.linspace(10, 200, 50, dtype=int)),
+        "learning_rate": hp.loguniform("learning_rate", np.log(0.01), np.log(0.9)),
+        "max_depth": hp.choice("max_depth", [-1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+        "num_leaves": hp.choice("num_leaves", np.linspace(10, 200, 10, dtype=int)),
         "feature_fraction": hp.quniform("feature_fraction", 0.5, 1.0, 0.1),
         "bagging_fraction": hp.quniform("bagging_fraction", 0.5, 1.0, 0.1),
-        "bagging_freq": hp.choice("bagging_freq", np.linspace(0, 50, 10, dtype=int)),
+        "bagging_freq": hp.choice("bagging_freq", np.linspace(0, 100, 10, dtype=int)),
         "reg_alpha": hp.uniform("reg_alpha", 0, 2),
         "reg_lambda": hp.uniform("reg_lambda", 0, 2),
         "min_child_weight": hp.uniform('min_child_weight', 0.5, 10),

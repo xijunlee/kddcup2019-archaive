@@ -39,10 +39,10 @@ pre_lgb_params = {
         'objective': 'binary',
         'boosting_type': 'rf',
         'metric': 'auc',
-        'subsample': 0.5,
-        'colsample_bytree': 0.5,
-        'num_leaves': 127,
-        'max_depth': 8,
+        'subsample': 0.623,
+        'colsample_bytree': 0.623,
+        'num_leaves': 200,
+        'max_depth': 10,
         'bagging_freq': 1,
         'n_jobs': 4,
         'verbose':-1
@@ -52,10 +52,10 @@ pre_lgb_params = {
 DATA_BALANCE_SWITCH = False
 SAMPLE_UP_OR_DOWN = "down"
 
-BAYESIAN_OPT = True
+BAYESIAN_OPT = False
 # Switch and parameter of data downsampling
 DATA_DOWNSAMPLING_SWITCH = False
-DOWNSAMPLING_RATIO = 0.8
+DOWNSAMPLING_RATIO = 0.5
 
 # Parameter of model ensemble
 ENSEMBLE = True
@@ -64,10 +64,10 @@ ENSEMBLE_OBJ = 2  # currently 2 is better than 3
 # Parameter of categorical hash
 cat_hash_params = {
     "cat": {
-        "method": "fact"#, "bd", "freq"
+        "method": "fact" # 3 options : "bd", "freq", "fact"
     },
     "multi_cat": {
-        "method": "freq"#, "count", "base"
+        "method": "count" # 3 options: "freq", "count", "base"
     }
 }
 

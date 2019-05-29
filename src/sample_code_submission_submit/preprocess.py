@@ -231,7 +231,9 @@ def feature_generation(X, random_features=None, seed=None):
         return X
 
 @timeit
-def feature_selection(X, y, config, seed=None):
+def feature_selection(X_raw, y_raw, config, seed=None):
+
+    X, y = data_downsampling(X_raw, y_raw, config)
 
     if CONSTANT.cat_hash_params["cat"]["method"] == "fact":
         categorical_feats = [
@@ -260,9 +262,9 @@ def feature_selection(X, y, config, seed=None):
     # imp_df.sort_values(by=["importance_gain", "importance_split"], ascending=False, inplace=True)
 
     selected_features = []
-    selected_features = imp_df.query("importance_gain > 0")["feature"]
+    selected_features = imp_df.query("importance_split > 0")["feature"]
 
-    return X[selected_features], selected_features
+    return X_raw[selected_features], selected_features
 
 @timeit
 def feature_selection_complex(X_raw, y_raw, config, seed=None):
