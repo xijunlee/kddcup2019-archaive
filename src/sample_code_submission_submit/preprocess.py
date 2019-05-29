@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn.utils import resample
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.feature_selection import RFE, RFECV
 from lightgbm import LGBMClassifier
 import lightgbm as lgb
 from sklearn.metrics import roc_auc_score
@@ -232,6 +233,64 @@ def feature_generation(X, random_features=None, seed=None):
 
 @timeit
 def feature_selection(X_raw, y_raw, config, seed=None):
+    method = CONSTANT.feature_selection_param["method"]
+
+    if method == "imp":
+        return _imp_feature_selection(X_raw, y_raw, config)
+    elif method == "nh":
+        return _nh_feature_selection(X_raw, y_raw, config)
+    elif method == "rfe":
+        return _rfe_feature_selection(X_raw, y_raw, config)
+
+@timeit
+def _rfe_feature_selection(X_raw, y_raw, config, seed=None):
+    '''
+    select feature using recursive feature elimination method
+    :param X_raw:
+    :param y_raw:
+    :param config:
+    :param seed:
+    :return:
+    '''
+    X, y = data_downsampling(X_raw, y_raw, config)
+
+    if CONSTANT.cat_hash_params["cat"]["method"] == "fact":
+        categorical_feats = [
+            col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
+        ]
+    else:
+        categorical_feats = []
+
+    train_features = X.columns
+    # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
+    dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True)
+    lgb_params = CONSTANT.pre_lgb_params
+    lgb_params["seed"] = seed
+    # Fit the model
+    clf = lgb.train(params=lgb_params, train_set=dtrain, categorical_feature=categorical_feats)
+
+    # create the RFE model and select feature
+    rfe = RFE(clf)
+    rfe = rfe.fit(X, y)
+    print(rfe.support_)
+
+    # summarize the ranking of the features
+    feature_rank = pd.DataFrame({"feature": X.columns, "rank": rfe.ranking_})
+    feature_rank = feature_rank.sort_values(by=["rank"], ascending=True)
+
+    print(feature_rank)
+
+
+@timeit
+def _imp_feature_selection(X_raw, y_raw, config, seed=None):
+    '''
+    select feature based on feature importance
+    :param X_raw:
+    :param y_raw:
+    :param config:
+    :param seed:
+    :return:
+    '''
 
     X, y = data_downsampling(X_raw, y_raw, config)
 
@@ -267,7 +326,16 @@ def feature_selection(X_raw, y_raw, config, seed=None):
     return X_raw[selected_features], selected_features
 
 @timeit
-def feature_selection_complex(X_raw, y_raw, config, seed=None):
+def _nh_feature_selection(X_raw, y_raw, config, seed=None):
+
+    '''
+    select feature based on null hypothesis
+    :param X_raw:
+    :param y_raw:
+    :param config:
+    :param seed:
+    :return:
+    '''
 
     X, y = data_balance(X_raw, y_raw, config)
     # X, y = X_raw, y_raw

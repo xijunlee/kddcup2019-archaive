@@ -215,6 +215,11 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
         1. pre-selection: select features used for feature generation based on prior knowledge
         2. feature generation: generate new feature with all feasible pairs of the pre-selected features
         3. post-selection: select generated features based on the performance and feature importance of a coarsely trained GBDT model **(已实现)**
+7. feature selection:
+    - univariate selection: selectKBest class in sklearn
+    - feature importance based on tree model**(已在lightgbm中实现)**
+    - correlation matrix with heat map
+    - Recursive Feature Elimination (RFE) **(已实现)**
 
 ### 超参数调优修改思路：
 1. 可能需要联合所有参数进行调优（先别管超不超时，通过搜索超参的方法看能不能提高K,L的精度）

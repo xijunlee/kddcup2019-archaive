@@ -30,7 +30,6 @@ from preprocess import clean_df, \
     feature_generation, \
     feature_selection, \
     data_balance, \
-    feature_selection_complex, \
     data_downsampling
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator

@@ -47,6 +47,10 @@ pre_lgb_params = {
         'n_jobs': 4,
         'verbose':-1
 }
+feature_selection_param = {
+    "method": "rfe" # 3 options: "imp", "nhp", "rfe"
+                      # "imp" for feature importance, "nh" for null hypothesis, "rfe" for recursive feature elimination
+}
 
 # Switch and parameter of data balance
 DATA_BALANCE_SWITCH = False
@@ -55,7 +59,7 @@ SAMPLE_UP_OR_DOWN = "down"
 BAYESIAN_OPT = False
 # Switch and parameter of data downsampling
 DATA_DOWNSAMPLING_SWITCH = False
-DOWNSAMPLING_RATIO = 0.5
+DOWNSAMPLING_RATIO = 0.4
 
 # Parameter of model ensemble
 ENSEMBLE = True
