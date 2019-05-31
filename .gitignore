@@ -116,6 +116,8 @@ starting_kit_0401/
 # Compressed files
 *.zip
 
+temp
+
 src/README.md
 src/ingestion_program/
 src/sample_code_submission_mine/
