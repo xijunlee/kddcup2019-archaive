@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.utils import resample
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, Imputer
 from sklearn.feature_selection import RFE, RFECV
 from lightgbm import LGBMClassifier
 import lightgbm as lgb
@@ -28,8 +28,11 @@ def clean_df(df):
 
 @timeit
 def fillna(df):
-    for c in [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]:
-        df[c].fillna(-1, inplace=True)
+    # for c in [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]:
+    #     df[c].fillna(-1, inplace=True)
+
+    numerical_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
+    df[numerical_list] = Imputer(strategy="median").fit_transform(df[numerical_list])
 
     for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
         df[c].fillna("0", inplace=True)
@@ -83,11 +86,14 @@ def transform_categorical_hash(df):
             val_freq = df[c].value_counts(normalize=True).to_dict()
             df[c] = df[c].map(val_freq)
             df[c] = df[c].astype('float')
+    elif cat_param["method"] == "ohe":
+        # one hot encoding
+        pass
 
     if multi_cat_param["method"] == 'base':
         for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
             df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
-    elif multi_cat_param["method"] == "count":
+    elif multi_cat_param["method"] == 'count':
         for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
             df[c] = df[c].apply(lambda x: len(x.split(',')))
     elif multi_cat_param["method"] == 'freq':
@@ -188,7 +194,8 @@ def data_balance(X, y, config, seed=CONSTANT.DATA_BALANCE_SEED):
                               random_state=seed)
     else:
         # Downsample majority class
-        n_sample = int(2*len(df_minority)) if len(df_majority) > 4*len(df_minority) else len(df_minority)
+        n_sample = int(0.6*len(df_majority)) if len(df_majority) > 6*len(df_minority) \
+            else int(0.8*len(df_majority))
         df_majority_downsampled = resample(df_majority,
                                            replace=False,  # sample without replacement
                                            n_samples=n_sample,
@@ -326,7 +333,7 @@ def _imp_feature_selection(X_raw, y_raw, config, seed=None):
     return X_raw[selected_features], selected_features
 
 @timeit
-def _nh_feature_selection(X_raw, y_raw, config, seed=None):
+def _nh_feature_selection(X_raw, y_raw, config, n_fold=10, seed=None):
 
     '''
     select feature based on null hypothesis
@@ -368,10 +375,10 @@ def _nh_feature_selection(X_raw, y_raw, config, seed=None):
     actual_imp_df = get_feature_importances(X, y, shuffle=False)
 
     null_imp_df = pd.DataFrame()
-    nb_runs = 25
+    nb_runs = n_fold
     for i in range(nb_runs):
         # Get current run importances
-        imp_df = get_feature_importances(X, y, shuffle=True)
+        imp_df = get_feature_importances(X, y, shuffle=True, seed=seed)
         # Concat the latest importances with the old ones
         null_imp_df = pd.concat([null_imp_df, imp_df], axis=0)
 

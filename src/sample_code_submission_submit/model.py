@@ -7,6 +7,7 @@ os.system("pip3 install deap")
 os.system("pip3 install sklearn")
 os.system("pip3 install category_encoders")
 os.system("pip3 install bayesian-optimization")
+os.system("pip3 install featuretools")
 
 import copy
 import numpy as np
@@ -33,6 +34,7 @@ from preprocess import clean_df, \
     data_downsampling
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
+import featuretools as ft
 
 if BAYESIAN_OPT:
     from bayesml import predict, train, validate
@@ -59,6 +61,7 @@ class Model:
     def fit(self, Xs, y, time_ramain):
         self.tables = copy.deepcopy(Xs)
         main_table = Xs[MAIN_TABLE_NAME]
+
         if DATA_BALANCE_SWITCH:
             main_table, y = data_balance(main_table, y, self.config)
         Xs[MAIN_TABLE_NAME] = main_table

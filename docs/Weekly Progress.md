@@ -221,6 +221,12 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - correlation matrix with heat map
     - Recursive Feature Elimination (RFE) **(已实现)**
 8. 还是利用下featuretools这个工具
+    - Convert object data types to category (done above; functions included from his notebook);
+    - Experiment with joining all the dataframes together, instead of linking them all through the entity_set relationship function;
+    - Create and save partitions to disk, and;
+    - Create an entity_set on each partition.
+    
+9. 特征数与record数的关系（先验知识）: So how many records are necessary for the number of features? Well, according to CalTech it is roughly 10. So if we have 10 features total features in our model, we should have at least 100 records. Given our max_depth=2 gives us 4135 features to work with, we should have 41,350 for any sort of prediction to be drawn from this experiment. We only have 21,000 and given this is just drawn from randomly generated data, I won’t adhere too much to the recommended number of records.
 
 ### 超参数调优修改思路：
 1. 可能需要联合所有参数进行调优（先别管超不超时，通过搜索超参的方法看能不能提高K,L的精度）
@@ -233,3 +239,20 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 ### 本周要解决的一些问题：
 1. 梳理目前整个模型的结构：现在模型组件越来越复杂了，需要整理
 2. 发现训练集和测试集上auc的表现差很多 **(泛化性能不好)**，计划用**kfold选择特征和超参**
+
+### 讨论思路总结
+
+#### 数据预处理段
+
+![数据预处理第1段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG222.jpeg)
+
+![数据预处理第2段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG223.jpeg)
+
+![数据预处理第3段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG224.jpeg)
+
+#### automl段
+
+![automl第1段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG219.jpeg)
+
+![automl第1段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG218.jpeg)
+
