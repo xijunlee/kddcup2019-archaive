@@ -220,7 +220,8 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - feature importance based on tree model**(已在lightgbm中实现)**
     - correlation matrix with heat map
     - Recursive Feature Elimination (RFE) **(已实现)**
-8. 还是利用下featuretools这个工具
+    - Cross-validation **(重点关注)**
+8. 还是利用下featuretools这个工具**(重点关注)**
     - Convert object data types to category (done above; functions included from his notebook);
     - Experiment with joining all the dataframes together, instead of linking them all through the entity_set relationship function;
     - Create and save partitions to disk, and;
