@@ -30,8 +30,28 @@ WINDOW_RATIO = 0.001
 
 # Switch and parameter of data reduction
 REDUCTION_SWITCH = False
-FEATURE_GENERATION_SWITCH = False
 VARIANCE_RATIO = 0.95 # the VARIANCE RAITO is used in PCA
+
+# Switch and parameter of feature generation
+FEATURE_GENERATION_SWITCH = False
+
+# Swich and parameter of feature generation using featuretools
+FEATURE_ENGINEERING_FT_SWITCH = False
+# Select the agg and trans primitives you want to look over
+agg_primitives=[
+        'std', 'min', 'max', 'mean',
+        'percent_true', 'last', 'count',
+        'trend', 'n_most_common'
+]
+trans_primitives=[
+        'percentile', 'cum_mean' #, 'cum_min', 'cum_count',
+        # 'subtract_numeric', 'add_numeric', 'diff', 'absolute',
+        # 'modulo_numeric', 'cum_max'
+        # 'hour', 'week', 'month', 'second', 'minute', 'weekday', 'year'
+]
+
+# Swich and parameter of feature generation using basing method
+FEATURE_ENGINEERING_BASE_SWITCH = False if FEATURE_ENGINEERING_FT_SWITCH else True
 
 # Switch and parameter of feature selection
 FEATURE_SELECTION_SWITCH = True
@@ -53,7 +73,7 @@ feature_selection_param = {
 }
 
 # Switch and parameter of data balance
-DATA_BALANCE_SWITCH = True
+DATA_BALANCE_SWITCH = False
 SAMPLE_UP_OR_DOWN = "down"
 
 

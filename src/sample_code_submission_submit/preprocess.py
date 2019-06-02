@@ -5,7 +5,8 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.utils import resample
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler, Imputer
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.impute import SimpleImputer
 from sklearn.feature_selection import RFE, RFECV
 from lightgbm import LGBMClassifier
 import lightgbm as lgb
@@ -13,6 +14,8 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold
 import category_encoders as ce
 import random
+import featuretools as ft
+
 
 @timeit
 def clean_tables(tables):
@@ -32,7 +35,7 @@ def fillna(df):
     #     df[c].fillna(-1, inplace=True)
 
     numerical_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
-    df[numerical_list] = Imputer(strategy="median").fit_transform(df[numerical_list])
+    df[numerical_list] = SimpleImputer(strategy="median").fit_transform(df[numerical_list])
 
     for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
         df[c].fillna("0", inplace=True)
@@ -45,7 +48,30 @@ def fillna(df):
 
 
 @timeit
-def feature_engineer(df, config):
+def feature_engineer_ft(df, config):
+
+    es = ft.EntitySet(id='main')
+    es = es.entity_from_dataframe(entity_id='main',
+                                  dataframe=df,
+                                  index="index")
+    agg_primitives = CONSTANT.agg_primitives
+    trans_primitives = CONSTANT.trans_primitives
+
+    features, feature_names = ft.dfs(
+        entityset=es,
+        target_entity='main',
+        agg_primitives=agg_primitives,
+        trans_primitives=trans_primitives,
+        max_depth=1,
+        n_jobs=1,
+        verbose=True)
+
+    features = transform_categorical_hash(features)
+
+    return features
+
+@timeit
+def feature_engineer_base(df, config):
     df = transform_categorical_hash(df)
     transform_datetime(df, config)
     return df
@@ -301,12 +327,14 @@ def _imp_feature_selection(X_raw, y_raw, config, seed=None):
 
     # X, y = data_downsampling(X_raw, y_raw, config)
     X, y = X_raw, y_raw
-    if CONSTANT.cat_hash_params["cat"]["method"] == "fact":
-        categorical_feats = [
-            col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
-        ]
-    else:
-        categorical_feats = []
+    # if CONSTANT.cat_hash_params["cat"]["method"] == "fact":
+    #     categorical_feats = [
+    #         col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
+    #     ]
+    # else:
+    #     categorical_feats = []
+
+    # categorical_feats = [c for c in X.columns if X[c].dtype == "object"]
 
     train_features = X.columns
     # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
@@ -314,7 +342,7 @@ def _imp_feature_selection(X_raw, y_raw, config, seed=None):
     lgb_params = CONSTANT.pre_lgb_params
     lgb_params["seed"] = seed
     # Fit the model
-    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200, categorical_feature=categorical_feats)
+    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
     # if there still exist categorical features
     #clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200, categorical_feature=categorical_feats)
 
