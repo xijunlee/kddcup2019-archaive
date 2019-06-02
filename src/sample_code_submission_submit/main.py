@@ -29,12 +29,12 @@ if len(sys.argv) == 1:
     #     'submission': join(ROOT_DIR, 'sample_code_submission')
     # }
 
-    ROOT_DIR = os.path.abspath('/Users/xijunli/Desktop/KDDCup2019/starting_kit_0401/')
+    ROOT_DIR = os.path.abspath('/Users/xijunli/Desktop/KDDCup2019/src/')
     DIRS = {
         'input': join(ROOT_DIR, 'sample_data'),
         'output': join(ROOT_DIR, 'sample_predictions'),
         'program': join(ROOT_DIR, 'ingestion_program'),
-        'submission': join(ROOT_DIR, 'sample_code_submission_comment')
+        'submission': join(ROOT_DIR, 'sample_code_submission_submit')
     }
 
 elif len(sys.argv) == 5:

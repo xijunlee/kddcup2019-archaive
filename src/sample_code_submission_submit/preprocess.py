@@ -5,12 +5,14 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.utils import resample
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, Imputer
+from sklearn.feature_selection import RFE, RFECV
 from lightgbm import LGBMClassifier
 import lightgbm as lgb
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold
 import category_encoders as ce
+import random
 
 @timeit
 def clean_tables(tables):
@@ -26,8 +28,11 @@ def clean_df(df):
 
 @timeit
 def fillna(df):
-    for c in [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]:
-        df[c].fillna(-1, inplace=True)
+    # for c in [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]:
+    #     df[c].fillna(-1, inplace=True)
+
+    numerical_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
+    df[numerical_list] = Imputer(strategy="median").fit_transform(df[numerical_list])
 
     for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
         df[c].fillna("0", inplace=True)
@@ -41,49 +46,81 @@ def fillna(df):
 
 @timeit
 def feature_engineer(df, config):
-    transform_categorical_hash(df)
+    df = transform_categorical_hash(df)
     transform_datetime(df, config)
+    return df
 
 @timeit
 def transform_datetime(df, config):
     for c in [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]:
         df.drop(c, axis=1, inplace=True)
-
+    return df
 
 @timeit
 def transform_categorical_hash(df):
 
-    # categorical encoding mechanism 1:
-    # for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
-    #     # df[c] = df[c].apply(lambda x: int(x))
-    #     df[c], _ = pd.factorize(df[c])
-    #     # Set feature type as categorical
-    #     df[c] = df[c].astype('category')
-    #
+    cat_param = CONSTANT.cat_hash_params["cat"]
+    multi_cat_param = CONSTANT.cat_hash_params["multi_cat"]
 
-    # categorical encoding mechanism 2:
-    # categorical_feats = [
-    #     col for col in df.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
-    # ]
-    #
-    # # Specify the columns to encode then fit and transform
-    # encoder = ce.backward_difference.BackwardDifferenceEncoder(cols=categorical_feats)
-    # encoder.fit(df, verbose=1)
-    # df = encoder.transform(df)
+    if cat_param["method"] == "fact":
+        # categorical encoding mechanism 1:
+        for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
+            # df[c] = df[c].apply(lambda x: int(x))
+            df[c], _ = pd.factorize(df[c])
+            # Set feature type as categorical
+            df[c] = df[c].astype('category')
+    elif cat_param["method"] == "bd":
+        # categorical encoding mechanism 2:
+        categorical_feats = [
+            col for col in df.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
+        ]
 
-    # categorical encoding mechanism 3:
-    for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
-        # df[c] = df[c].apply(lambda x: int(x))
-        # df[c], _ = pd.factorize(df[c])
-        # calculate the frequency of item
-        val_freq = df[c].value_counts(normalize=True).to_dict()
-        df[c] = df[c].map(val_freq)
-        df[c] = df[c].astype('float')
+        # Specify the columns to encode then fit and transform
+        encoder = ce.backward_difference.BackwardDifferenceEncoder(cols=categorical_feats)
+        encoder.fit(df, verbose=1)
+        df = encoder.transform(df)
+    elif cat_param["method"] == "freq":
+        # categorical encoding mechanism 3:
+        for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
+            # calculate the frequency of item
+            val_freq = df[c].value_counts(normalize=True).to_dict()
+            df[c] = df[c].map(val_freq)
+            df[c] = df[c].astype('float')
+    elif cat_param["method"] == "ohe":
+        # one hot encoding
+        pass
+
+    if multi_cat_param["method"] == 'base':
+        for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
+            df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
+    elif multi_cat_param["method"] == 'count':
+        for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
+            df[c] = df[c].apply(lambda x: len(x.split(',')))
+    elif multi_cat_param["method"] == 'freq':
+        for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
+            multi_cat_expand = df[c].astype(str).str.split(',', expand=True).stack() \
+                .reset_index(level=0).set_index('level_0').rename(columns={0: c})
+            val_freq = multi_cat_expand[c].value_counts(normalize=True).to_dict()
+            multi_cat_expand[c] = multi_cat_expand[c].map(val_freq)
+            multi_cat_expand[c] = multi_cat_expand[c].astype('float')
+            multi_cat_expand = multi_cat_expand.groupby('level_0').agg([sum, np.mean, np.std]).fillna(0)
+            multi_cat_expand.columns = multi_cat_expand.columns.map('|'.join).str.strip('|')
+            df.drop(columns=c, inplace=True)
+            df = pd.concat([df, multi_cat_expand], axis=1)
+
+    # TODO: multi value categorical feature -> ?
+    # x = df[c].str.split(r',', expand=True)\
+    #         .stack()\
+    #         .reset_index(level=1, drop=True)\
+    #         .to_frame(c)
+    # cleaned = df[c].str.split(r',', expand=True).stack()
+    # cleaned = pd.get_dummies(cleaned, prefix='c', columns=c).groupby(level=0).sum()
+    # df_r.drop(columns=c, inplace=True)
+    # df_r = pd.concat([df_r, cleaned], axis=1)
+
+    return df
 
 
-    for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
-        df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
-        # TODO: multi value categorical feature -> ?
 @timeit
 def data_reduction_train(df):
     matrix = df.as_matrix()
@@ -121,13 +158,14 @@ def data_reduction_test(df, scaler, pca):
     return ret_df
 
 @timeit
-def data_downsampling(X, y, config, seed=None):
+def data_downsampling(X, y, config, seed=CONSTANT.DOWNSAMPLING_SEED):
     origin_size = len(X)
     X["class"] = y
     df_sampled = resample(X, replace=False, n_samples=int(origin_size*CONSTANT.DOWNSAMPLING_RATIO))
     return df_sampled.drop(columns=["class"]), df_sampled["class"]
+
 @timeit
-def data_balance(X, y, config, seed=None):
+def data_balance(X, y, config, seed=CONSTANT.DATA_BALANCE_SEED):
     # balance the raw dataset if there exist imbalance class in it.
 
     origin_size = len(X)
@@ -156,9 +194,11 @@ def data_balance(X, y, config, seed=None):
                               random_state=seed)
     else:
         # Downsample majority class
+        n_sample = int(0.6*len(df_majority)) if len(df_majority) > 6*len(df_minority) \
+            else int(0.8*len(df_majority))
         df_majority_downsampled = resample(df_majority,
                                            replace=False,  # sample without replacement
-                                           n_samples=len(df_minority),
+                                           n_samples=n_sample,
                                            random_state=seed)  # to match minority class
 
         # Combine minority class with downsampled majority class
@@ -169,18 +209,112 @@ def data_balance(X, y, config, seed=None):
 
     return df_sampled.drop(columns=["class"]), df_sampled["class"]
 
+
 @timeit
-def feature_selection(X, y, config, seed=None):
-    # categorical_feats = [
-    #     col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
-    # ]
+def feature_generation(X, random_features=None, seed=None):
+    # Unary operation
+    for c in [c for c in X if c.startswith(CONSTANT.NUMERICAL_PREFIX)]:
+        # discretization
+        c_min = int(X[c].min())
+        segment = (X[c].max() - c_min) / 10
+        X = X.assign(disc=lambda x: (x[c] - c_min) // segment * segment + c_min)
+        X = X.rename(columns={'disc': c+'_disc'})
+
+    # Binary operation
+    if random_features is None:
+        random_feature_1 = random.sample([c for c in X if c.startswith(CONSTANT.NUMERICAL_PREFIX)], 20)
+        random_feature_2 = random.sample([c for c in X if c.startswith(CONSTANT.NUMERICAL_PREFIX)], 20)
+    else:
+        random_feature_1, random_feature_2 = random_features
+
+    for c_1 in random_feature_1:
+        for c_2 in random_feature_2:
+            X[c_1 + '_plus_' + c_2] = X[c_1] + X[c_2]
+            X[c_1 + '_minus_' + c_2] = X[c_1] - X[c_2]
+            X[c_1 + '_multiple_' + c_2] = X[c_1] * X[c_2]
+            X[c_1 + '_divide_' + c_2] = X[c_1] / (X[c_2] + 1e-8)
+
+    if random_features is None:
+        return X, [random_feature_1, random_feature_2]
+    else:
+        return X
+
+@timeit
+def feature_selection(X_raw, y_raw, config, seed=CONSTANT.FEATURE_SELECTION_SEED):
+    method = CONSTANT.feature_selection_param["method"]
+
+    if method == "imp":
+        return _imp_feature_selection(X_raw, y_raw, config, seed)
+    elif method == "nh":
+        return _nh_feature_selection(X_raw, y_raw, config, seed)
+    elif method == "rfe":
+        return _rfe_feature_selection(X_raw, y_raw, config, seed)
+
+@timeit
+def _rfe_feature_selection(X_raw, y_raw, config, seed=None):
+    '''
+    select feature using recursive feature elimination method
+    :param X_raw:
+    :param y_raw:
+    :param config:
+    :param seed:
+    :return:
+    '''
+    X, y = data_downsampling(X_raw, y_raw, config)
+
+    if CONSTANT.cat_hash_params["cat"]["method"] == "fact":
+        categorical_feats = [
+            col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
+        ]
+    else:
+        categorical_feats = []
+
     train_features = X.columns
     # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
     dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True)
     lgb_params = CONSTANT.pre_lgb_params
     lgb_params["seed"] = seed
     # Fit the model
-    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
+    clf = lgb.train(params=lgb_params, train_set=dtrain, categorical_feature=categorical_feats)
+
+    # create the RFE model and select feature
+    rfe = RFE(clf)
+    rfe = rfe.fit(X, y)
+    print(rfe.support_)
+
+    # summarize the ranking of the features
+    feature_rank = pd.DataFrame({"feature": X.columns, "rank": rfe.ranking_})
+    feature_rank = feature_rank.sort_values(by=["rank"], ascending=True)
+
+    print(feature_rank)
+
+@timeit
+def _imp_feature_selection(X_raw, y_raw, config, seed=None):
+    '''
+    select feature based on feature importance
+    :param X_raw:
+    :param y_raw:
+    :param config:
+    :param seed:
+    :return:
+    '''
+
+    # X, y = data_downsampling(X_raw, y_raw, config)
+    X, y = X_raw, y_raw
+    if CONSTANT.cat_hash_params["cat"]["method"] == "fact":
+        categorical_feats = [
+            col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
+        ]
+    else:
+        categorical_feats = []
+
+    train_features = X.columns
+    # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
+    dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True)
+    lgb_params = CONSTANT.pre_lgb_params
+    lgb_params["seed"] = seed
+    # Fit the model
+    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200, categorical_feature=categorical_feats)
     # if there still exist categorical features
     #clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200, categorical_feature=categorical_feats)
 
@@ -191,18 +325,27 @@ def feature_selection(X, y, config, seed=None):
     imp_df["importance_split"] = clf.feature_importance(importance_type='split')
     imp_df['trn_score'] = roc_auc_score(y, clf.predict(X))
 
-    # imp_df.sort_values(by=["importance_gain", "importance_split"], ascending=False, inplace=True)
+    # imp_df.sort_values(by=["importance_gain"], ascending=False, inplace=True)
 
     selected_features = []
     selected_features = imp_df.query("importance_gain > 0")["feature"]
 
-    return X[selected_features], selected_features
+    return X_raw[selected_features], selected_features
 
 @timeit
-def feature_selection_complex(X_raw, y_raw, config, seed=None):
+def _nh_feature_selection(X_raw, y_raw, config, n_fold=10, seed=None):
 
-    X, y = data_balance(X_raw, y_raw, config)
-    # X, y = X_raw, y_raw
+    '''
+    select feature based on null hypothesis
+    :param X_raw:
+    :param y_raw:
+    :param config:
+    :param seed:
+    :return:
+    '''
+
+    # X, y = data_balance(X_raw, y_raw, config)
+    X, y = X_raw, y_raw
     def get_feature_importances(X, y, shuffle, seed=None):
         # Gather real features
         train_features = X.columns
@@ -232,10 +375,10 @@ def feature_selection_complex(X_raw, y_raw, config, seed=None):
     actual_imp_df = get_feature_importances(X, y, shuffle=False)
 
     null_imp_df = pd.DataFrame()
-    nb_runs = 25
+    nb_runs = n_fold
     for i in range(nb_runs):
         # Get current run importances
-        imp_df = get_feature_importances(X, y, shuffle=True)
+        imp_df = get_feature_importances(X, y, shuffle=True, seed=seed)
         # Concat the latest importances with the old ones
         null_imp_df = pd.concat([null_imp_df, imp_df], axis=0)
 
@@ -272,5 +415,3 @@ def feature_selection_complex(X_raw, y_raw, config, seed=None):
 
     return X_raw[selected_features], selected_features
 
-def get_feature_importance(df):
-    pass

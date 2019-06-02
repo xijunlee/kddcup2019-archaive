@@ -98,11 +98,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
    3. 混合PCA降维加上原始特征
    4. 对于原始单列特征增加更多aggregation操作
 
-<<<<<<< HEAD
-超参数调优修改思路：
-=======
 - [x] 超参数调优修改思路：
->>>>>>> 0c090e1b8bebb25a2d2e595536b17f0704beb444
    1. 测试class imbalance相关参数
       a. 固定参数："is_unbalance": True
       	->ADE提升明显，C严重下滑，总排名下滑，暂时关闭，**待后续研究**
@@ -127,9 +123,9 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
             b. https://github.com/MetaLearners/NIPS-2018-AutoML-Challenge (NIPS2018, 2nd)
             c. https://github.com/jungtaekkim/automl-challenge-2018 (PAKDD2018, 2nd)
 
-# Time Window: 20190521~20190527
+## Time Window: 20190521~20190527
 
-特征工程修改思路：
+### 特征工程修改思路：
 1. random sampling, or data subsampling: 不一定要用到给定数据集的所有数据，resample一些出来学习，提高效率；
     - data ubsampling **(已实现)**
     - data downsampling **(已实现，已提交)**
@@ -148,6 +144,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
     - For a random variable X, standardization means converting X to its standardized random variable
 5. Multi-value Categorical Feature: a set of integers, split by the comma.
     - preprocessing methods: Hash coding and frequency coding
+    - 统计multi-value每一行中出现value的个数，作为该行的值**（已实现）**
 6. Time Feature: an integer describing time information.
     - preprocessing methods: Using second-order features. What is second-order feature ???
 7. First-order feature engineer: frequency encoding of categorical features
@@ -164,18 +161,18 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
         2. feature generation: generate new feature with all feasible pairs of the pre-selected features
         3. post-selection: select generated features based on the performance and feature importance of a coarsely trained GBDT model
 9. Check the imbalance of class: mitigate the imbalance of class
-    - Up-sample Minority Class: Up-sampling is the process of randomly duplicating observations from the minority class in order to reinforce its signal.
-    - Down-sample Majority Class: Down-sampling involves randomly removing observations from the majority class to prevent its signal from dominating the learning algorithm.
-    - Change Your Performance Metric: For a general-purpose metric for classification, we recommend Area Under ROC Curve (AUROC).
+    - Up-sample Minority Class: Up-sampling is the process of randomly duplicating observations from the minority class in order to reinforce its signal.**（已实现）**
+    - Down-sample Majority Class: Down-sampling involves randomly removing observations from the majority class to prevent its signal from dominating the learning algorithm.**（已实现）**
+    - Change Your Performance Metric: For a general-purpose metric for classification, we recommend Area Under ROC Curve (AUROC).**（已实现）**
     - Penalize Algorithms (Cost-Sensitive Training): to use penalized learning algorithms that increase the cost of classification mistakes on the minority class. A popular algorithm for this technique is Penalized-SVM
     - Use Tree-Based Algorithms: using tree-based algorithms. Decision trees often perform well on imbalanced datasets because their hierarchical structure allows them to learn signals from both classes.
 10. Feature embedding: might utilize DNN to embed the selected feature???
 
-出现的问题：
+#### 出现的问题：
 
-1. 发现训练集和测试集上auc的表现差很多
+1. 发现训练集和测试集上auc的表现差很多 **泛化性能不好**
 
-超参数调优修改思路：
+### 超参数调优修改思路：
 
 1. 提速测试：保存超参数调优中训练的模型，最终预测时，直接读取ensemble中的模型，继续训练，num_boost_round由500降到300
 
@@ -183,7 +180,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
 2. 防止过拟合测试：选取weak model组成ensemble时，将最小化weak model中树的个数作为考量目标之一。
 
-   ->排名53，代码已注释，**怀疑ensemble选10 out of 5不合理，ensemble需优化**
+   ->排名53，代码已注释，**怀疑ensemble选5 out of 10不合理，ensemble需优化**
 
 | Algorithms                        | A        | B        | C        | D        | E        | Time    |
 | --------------------------------- | -------- | -------- | -------- | -------- | -------- | ------- |
@@ -192,4 +189,71 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 | 提速+防过拟合(maximize num_trees) | 0.716522 | 0.822976 | 0.715017 | 0.623435 | 0.630734 | 2238.36 |
 | 提速+防过拟合(minimize num_trees) | 0.715263 | 0.825259 | 0.734847 | 0.621791 | 0.633713 | 2140.54 |
 
+## Time Window: 20190527~20190602
+### 特征工程修改思路：
+继续实现没有做完的特征工程组件
+1. Feature embedding: might utilize DNN to embed the selected feature???
+2. Numerical Feature: a real value.
+    - preprocessing methods: standardization
+    - For a random variable X, standardization means converting X to its standardized random variable
+3. Multi-value Categorical Feature: a set of integers, split by the comma.
+    - preprocessing methods: Hash coding and frequency coding
+    - 统计multi-value每一行中出现value的个数，作为该行的值**(已实现)**
+    - frequency encoding of multi-value categorical feature**(已实现)**
+4. Time Feature: an integer describing time information.
+    - preprocessing methods: Using second-order features. ** What is second-order feature **???
+5. First-order feature engineer: frequency encoding of categorical features **(已实现)**
+6. High-order feature engineer:
+    - predefine a set of binary transformations based on prior knowledge
+    - apply each type of transformation on the original feature sets to generate new features in an expansion-reduction fashion
+    - such as:
+        - numerical-numerical: +,-,*,/ **(已实现)**
+        - categorical-numerical: num_mean_groupby_cat
+        - categorical-categorical: cat_cat_combine, cat_nunique_groupby_cat
+        - categorical-temporal: time_difference_groupby_cat
+    - key steps:
+        1. pre-selection: select features used for feature generation based on prior knowledge
+        2. feature generation: generate new feature with all feasible pairs of the pre-selected features
+        3. post-selection: select generated features based on the performance and feature importance of a coarsely trained GBDT model **(已实现)**
+7. feature selection:
+    - univariate selection: selectKBest class in sklearn
+    - feature importance based on tree model**(已在lightgbm中实现)**
+    - correlation matrix with heat map
+    - Recursive Feature Elimination (RFE) **(已实现)**
+    - Cross-validation **(重点关注)**
+8. 还是利用下featuretools这个工具 **(重点关注)**
+    - Convert object data types to category (done above; functions included from his notebook);
+    - Experiment with joining all the dataframes together, instead of linking them all through the entity_set relationship function;
+    - Create and save partitions to disk, and;
+    - Create an entity_set on each partition.
+    
+9. 特征数与record数的关系（先验知识）: So how many records are necessary for the number of features? Well, according to CalTech it is roughly 10. So if we have 10 features total features in our model, we should have at least 100 records. Given our max_depth=2 gives us 4135 features to work with, we should have 41,350 for any sort of prediction to be drawn from this experiment. We only have 21,000 and given this is just drawn from randomly generated data, I won’t adhere too much to the recommended number of records.
+
+### 超参数调优修改思路：
+1. 可能需要联合所有参数进行调优（先别管超不超时，通过搜索超参的方法看能不能提高K,L的精度）
+2. 设计根据time remaining利用计算资源的算法
+
+### 加速建议：
+1. 利用cython来加速代码
+2. multi-fidelity，很多地方都不能拿整个输入数据集去算，极容易超时
+
+### 本周要解决的一些问题：
+1. 梳理目前整个模型的结构：现在模型组件越来越复杂了，需要整理
+2. 发现训练集和测试集上auc的表现差很多 **(泛化性能不好)**，计划用**kfold选择特征和超参**
+
+### 讨论思路总结
+
+#### 数据预处理段
+
+![数据预处理第1段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG222.jpeg)
+
+![数据预处理第2段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG223.jpeg)
+
+![数据预处理第3段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG224.jpeg)
+
+#### automl段
+
+![automl第1段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG219.jpeg)
+
+![automl第1段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG218.jpeg)
 

@@ -9,7 +9,13 @@ from sklearn.metrics import roc_auc_score, f1_score
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from CONSTANT import ENSEMBLE, ENSEMBLE_OBJ
 from deap import creator, tools
-
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
+from CONSTANT import ENSEMBLE, \
+    ENSEMBLE_OBJ, \
+    train_lgb_params, \
+    HYPEROPT_SEED, \
+    DATA_SPLIT_SEED
 
 from util import Config, log, timeit
 
@@ -48,8 +54,9 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
         # "is_unbalance": True,
         # "scale_pos_weight": 2,
     }
+    # params = train_lgb_params
 
-    X_sample, y_sample = data_sample(X, y, 30000)
+    X_sample, y_sample = data_sample(X, y)
 
     X_train, X_val, y_train, y_val = data_split(X, y, 0.1)
 
@@ -75,7 +82,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
 
         config["model"] = lgb.train({**params, **hyperparams},
                                     train_data,
-                                    500,
+                                    200,
                                     valid_data,
                                     early_stopping_rounds=30,
                                     verbose_eval=100,
@@ -113,12 +120,12 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         train_data_li.append(data.subset(train_indices))
         valid_date_li.append(data.subset(valid_indices))
     space = {
-        "learning_rate": hp.loguniform("learning_rate", np.log(0.01), np.log(0.5)),
-        "max_depth": hp.choice("max_depth", [-1, 2, 3, 4, 5, 6]),
-        "num_leaves": hp.choice("num_leaves", np.linspace(10, 200, 50, dtype=int)),
+        "learning_rate": hp.loguniform("learning_rate", np.log(0.01), np.log(0.9)),
+        "max_depth": hp.choice("max_depth", [1, 2, 3, 4, 5, 6, 7, 8]),
+        "num_leaves": hp.choice("num_leaves", np.linspace(10, 100, 50, dtype=int)),
         "feature_fraction": hp.quniform("feature_fraction", 0.5, 1.0, 0.1),
         "bagging_fraction": hp.quniform("bagging_fraction", 0.5, 1.0, 0.1),
-        "bagging_freq": hp.choice("bagging_freq", np.linspace(0, 50, 10, dtype=int)),
+        "bagging_freq": hp.choice("bagging_freq", np.linspace(0, 100, 10, dtype=int)),
         "reg_alpha": hp.uniform("reg_alpha", 0, 2),
         "reg_lambda": hp.uniform("reg_lambda", 0, 2),
         "min_child_weight": hp.uniform('min_child_weight', 0.5, 10),
@@ -167,8 +174,8 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
     trials = Trials()
     best = hyperopt.fmin(fn=objective, space=space, trials=trials,
-                         algo=tpe.suggest, max_evals=10, verbose=1,
-                         rstate=np.random.RandomState(1))
+                         algo=tpe.suggest, max_evals=20, verbose=-1,
+                         rstate=np.random.RandomState(HYPEROPT_SEED))
 
     if ENSEMBLE:
         # # select top half of the classifiers according to auc
@@ -243,10 +250,10 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
 def data_split(X: pd.DataFrame, y: pd.Series, test_size: float=0.2):
     #  -> (pd.DataFrame, pd.Series, pd.DataFrame, pd.Series):
-    return train_test_split(X, y, test_size=test_size, random_state=1)
+    return train_test_split(X, y, test_size=test_size, random_state=DATA_SPLIT_SEED)
 
 
-def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int=5000):
+def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int=1000):
     # -> (pd.DataFrame, pd.Series):
     if len(X) > nrows:
         X_sample = X.sample(nrows, random_state=1)
