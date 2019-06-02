@@ -36,18 +36,18 @@ VARIANCE_RATIO = 0.95 # the VARIANCE RAITO is used in PCA
 FEATURE_GENERATION_SWITCH = False
 
 # Swich and parameter of feature generation using featuretools
-FEATURE_ENGINEERING_FT_SWITCH = False
+FEATURE_ENGINEERING_FT_SWITCH = True
 # Select the agg and trans primitives you want to look over
 agg_primitives=[
-        'std', 'min', 'max', 'mean',
-        'percent_true', 'last', 'count',
-        'trend', 'n_most_common'
+        # 'std', 'min', 'max', 'mean',
+        # 'percent_true', 'last', 'count',
+        # 'trend', 'n_most_common'
 ]
 trans_primitives=[
-        'percentile', 'cum_mean' #, 'cum_min', 'cum_count',
+        'cum_mean', 'cum_min', 'cum_max'
+        #'percentile', 'cum_mean', 'cum_min', 'cum_count', 'cum_max'
         # 'subtract_numeric', 'add_numeric', 'diff', 'absolute',
-        # 'modulo_numeric', 'cum_max'
-        # 'hour', 'week', 'month', 'second', 'minute', 'weekday', 'year'
+        # 'modulo_numeric', 'hour', 'week', 'month', 'second', 'minute', 'weekday', 'year'
 ]
 
 # Swich and parameter of feature generation using basing method
@@ -68,8 +68,12 @@ pre_lgb_params = {
         'verbose':-1
 }
 feature_selection_param = {
-    "method": "imp" # 3 options: "imp", "nhp", "rfe"
-                      # "imp" for feature importance, "nh" for null hypothesis, "rfe" for recursive feature elimination
+    "method": "cor" # 4 options: "imp", "nhp", "rfe", "sfm", "cor"
+                    # "imp" for feature importance,
+                    # "nh" for null hypothesis,
+                    # "rfe" for recursive feature elimination,
+                    # "sfm" for SelectFromModel
+                    # "cor" for correlation
 }
 
 # Switch and parameter of data balance
@@ -80,7 +84,7 @@ SAMPLE_UP_OR_DOWN = "down"
 BAYESIAN_OPT = False
 # Switch and parameter of data downsampling
 DATA_DOWNSAMPLING_SWITCH = False
-DOWNSAMPLING_RATIO = 0.4
+DOWNSAMPLING_RATIO = 0.5
 
 # Parameter of model ensemble
 ENSEMBLE = True

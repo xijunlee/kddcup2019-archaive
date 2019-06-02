@@ -15,7 +15,8 @@ from sklearn.model_selection import KFold
 import category_encoders as ce
 import random
 import featuretools as ft
-
+from sklearn.feature_selection import SelectFromModel
+from lightgbm import LGBMClassifier
 
 @timeit
 def clean_tables(tables):
@@ -39,6 +40,8 @@ def fillna(df):
 
     for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
         df[c].fillna("0", inplace=True)
+    # categorical_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
+    # df[categorical_list] = SimpleImputer(strategy="most_frequent").fit_transform(df[categorical_list])
 
     for c in [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]:
         df[c].fillna(datetime.datetime(1970, 1, 1), inplace=True)
@@ -220,8 +223,8 @@ def data_balance(X, y, config, seed=CONSTANT.DATA_BALANCE_SEED):
                               random_state=seed)
     else:
         # Downsample majority class
-        n_sample = int(0.6*len(df_majority)) if len(df_majority) > 6*len(df_minority) \
-            else int(0.8*len(df_majority))
+        n_sample = int(0.16*len(df_majority)) if len(df_majority) > 6*len(df_minority) \
+            else int(0.3*len(df_majority))
         df_majority_downsampled = resample(df_majority,
                                            replace=False,  # sample without replacement
                                            n_samples=n_sample,
@@ -229,6 +232,7 @@ def data_balance(X, y, config, seed=CONSTANT.DATA_BALANCE_SEED):
 
         # Combine minority class with downsampled majority class
         df_sampled = pd.concat([df_majority_downsampled, df_minority])
+
 
     # Display new class counts
     print(df_sampled["class"].value_counts())
@@ -267,14 +271,57 @@ def feature_generation(X, random_features=None, seed=None):
 
 @timeit
 def feature_selection(X_raw, y_raw, config, seed=CONSTANT.FEATURE_SELECTION_SEED):
-    method = CONSTANT.feature_selection_param["method"]
 
+    method = CONSTANT.feature_selection_param["method"]
+    X, y = data_balance(X_raw, y_raw, config)
+    X, y = data_downsampling(X, y, config)
+    selected_features = []
     if method == "imp":
-        return _imp_feature_selection(X_raw, y_raw, config, seed)
+        selected_features = _imp_feature_selection(X, y, config, seed)
     elif method == "nh":
-        return _nh_feature_selection(X_raw, y_raw, config, seed)
+        selected_features = _nh_feature_selection(X, y, config, seed)
     elif method == "rfe":
-        return _rfe_feature_selection(X_raw, y_raw, config, seed)
+        selected_features = _rfe_feature_selection(X, y, config, seed)
+    elif method == "sfm":
+        selected_features =_sfm_feature_selection(X, y, config, seed)
+    elif method =="cor":
+        selected_features = _cor_feature_selection(X, y, config, seed)
+    return X_raw[selected_features], selected_features
+
+@timeit
+def _cor_feature_selection(X_raw, y_raw, config, seed=None):
+    cor_list = []
+    # calculate the correlation with y for each feature
+    feature_name = X_raw.columns.tolist()
+    for i in feature_name:
+        cor = np.corrcoef(X_raw[i], y_raw)[0, 1]
+        cor_list.append(cor)
+    # replace NaN with 0
+    cor_list = [0 if np.isnan(i) else i for i in cor_list]
+    # feature name
+    n_selected_ratio = 0.2
+    n_selection_feature = int(0.2*len(feature_name))
+    cor_feature = X_raw.iloc[:, np.argsort(np.abs(cor_list))[-1*n_selection_feature:]].columns.tolist()
+    # feature selection? 0 for not select, 1 for select
+    cor_support = [True if i in cor_feature else False for i in feature_name]
+    return cor_feature
+
+
+@timeit
+def _sfm_feature_selection(X_raw, y_raw, config, seed=None):
+    # X, y = data_downsampling(X_raw, y_raw, config)
+    X, y = X_raw, y_raw
+
+    lgbc = LGBMClassifier(n_estimators=500, learning_rate=0.05, num_leaves=32, colsample_bytree=0.2,
+                          reg_alpha=3, reg_lambda=1, min_split_gain=0.01, min_child_weight=40)
+
+    embeded_lgb_selector = SelectFromModel(lgbc, threshold='1.25*median')
+    embeded_lgb_selector.fit(X, y)
+
+    embeded_lgb_support = embeded_lgb_selector.get_support()
+    embeded_lgb_feature = X.loc[:, embeded_lgb_support].columns.tolist()
+    # print(str(len(embeded_lgb_feature)), 'selected features')
+    return embeded_lgb_feature
 
 @timeit
 def _rfe_feature_selection(X_raw, y_raw, config, seed=None):
@@ -358,7 +405,7 @@ def _imp_feature_selection(X_raw, y_raw, config, seed=None):
     selected_features = []
     selected_features = imp_df.query("importance_gain > 0")["feature"]
 
-    return X_raw[selected_features], selected_features
+    return selected_features
 
 @timeit
 def _nh_feature_selection(X_raw, y_raw, config, n_fold=10, seed=None):
@@ -441,5 +488,5 @@ def _nh_feature_selection(X_raw, y_raw, config, n_fold=10, seed=None):
     selected_features = []
     selected_features = corr_scores_df.query("split_score > 0")["feature"]
 
-    return X_raw[selected_features], selected_features
+    return selected_features
 

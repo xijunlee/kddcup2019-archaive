@@ -124,7 +124,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
     trials = Trials()
     best = hyperopt.fmin(fn=objective, space=space, trials=trials,
-                         algo=tpe.suggest, max_evals=20, verbose=-1,
+                         algo=tpe.suggest, max_evals=10, verbose=-1,
                          rstate=np.random.RandomState(HYPEROPT_SEED))
 
     if ENSEMBLE:

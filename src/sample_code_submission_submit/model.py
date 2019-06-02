@@ -78,9 +78,9 @@ class Model:
         self.tables = copy.deepcopy(Xs)
         main_table = Xs[MAIN_TABLE_NAME]
 
-        if DATA_BALANCE_SWITCH:
-            main_table, y = data_balance(main_table, y, self.config)
-            Xs[MAIN_TABLE_NAME] = main_table
+        # if DATA_BALANCE_SWITCH:
+        #     main_table, y = data_balance(main_table, y, self.config)
+        #     Xs[MAIN_TABLE_NAME] = main_table
 
         clean_tables(Xs)
         X = merge_table(Xs, self.config)
@@ -89,8 +89,8 @@ class Model:
             X = feature_engineer_ft(X, self.config)
         else:
             X = feature_engineer_base(X, self.config)
-        if FEATURE_GENERATION_SWITCH:
-            X, self.random_features = feature_generation(X)
+        # if FEATURE_GENERATION_SWITCH:
+        #     X, self.random_features = feature_generation(X)
         if FEATURE_SELECTION_SWITCH:
             X, self.selected_features = feature_selection(X, y, self.config)
         if REDUCTION_SWITCH:
@@ -117,8 +117,8 @@ class Model:
         X = X.iloc[len_X_train:,]
         # X.index = X.index.map(lambda x: int(x.split('_')[1]))
         X.sort_index(inplace=True)
-        if FEATURE_GENERATION_SWITCH:
-            X = feature_generation(X, self.random_features)
+        # if FEATURE_GENERATION_SWITCH:
+        #     X = feature_generation(X, self.random_features)
         if FEATURE_SELECTION_SWITCH:
             X = X[self.selected_features]
         if REDUCTION_SWITCH:
