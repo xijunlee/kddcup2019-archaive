@@ -9,9 +9,9 @@ str_sh3 = "apt-get --assume-yes install python3 python-dev python3-dev \
      libxml2-dev libxslt1-dev zlib1g-dev \
      python-pip"
 
-# os.system(str_sh1)
-# os.system(str_sh2)
-# os.system(str_sh3)
+os.system(str_sh1)
+os.system(str_sh2)
+os.system(str_sh3)
 
 os.system("pip3 install hyperopt")
 os.system("pip3 install lightgbm")
@@ -20,6 +20,7 @@ os.system("pip3 install deap")
 os.system("pip3 install sklearn")
 os.system("pip3 install category_encoders")
 os.system("pip3 install bayesian-optimization")
+os.system("pip3 install numbers")
 os.system("pip3 install psutil")
 os.system("pip3 install featuretools")
 
