@@ -218,7 +218,7 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 7. feature selection:
     - univariate selection: selectKBest class in sklearn
     - feature importance based on tree model**(已在lightgbm中实现)**
-    - pearson correlation** (已实现)**
+    - pearson correlation **(已实现)**
     - selectFromModel**(已实现)**
     - Recursive Feature Elimination (RFE) **(已实现)**
     - Cross-validation **(重点关注)**

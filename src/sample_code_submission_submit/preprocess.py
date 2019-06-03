@@ -17,6 +17,8 @@ import random
 import featuretools as ft
 from sklearn.feature_selection import SelectFromModel
 from lightgbm import LGBMClassifier
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 
 @timeit
 def clean_tables(tables):
@@ -36,15 +38,17 @@ def fillna(df):
     #     df[c].fillna(-1, inplace=True)
 
     numerical_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
-    df[numerical_list] = SimpleImputer(strategy="median").fit_transform(df[numerical_list])
+    df[numerical_list] = SimpleImputer(strategy="mean").fit_transform(df[numerical_list])
 
-    for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
-        df[c].fillna("0", inplace=True)
-    # categorical_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
-    # df[categorical_list] = SimpleImputer(strategy="most_frequent").fit_transform(df[categorical_list])
+    # for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
+    #     df[c].fillna("0", inplace=True)
+    categorical_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
+    df[categorical_list] = SimpleImputer(strategy="most_frequent").fit_transform(df[categorical_list])
 
     for c in [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]:
         df[c].fillna(datetime.datetime(1970, 1, 1), inplace=True)
+    # time_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
+    # df[time_list] = SimpleImputer(strategy="most_frequent").fit_transform(df[time_list])
 
     for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
         df[c].fillna("0", inplace=True)
@@ -69,7 +73,13 @@ def feature_engineer_ft(df, config):
         n_jobs=1,
         verbose=True)
 
+    # process the categorical feature
     features = transform_categorical_hash(features)
+    # replace year 1970 with the most frequently emerge year
+    for c in [c for c in features if c.startswith("YEAR")]:
+        mode = features[c].mode()[0]
+        features[c].replace(to_replace=1970, value=mode, inplace=True)
+
 
     return features
 
@@ -97,7 +107,7 @@ def transform_categorical_hash(df):
             # df[c] = df[c].apply(lambda x: int(x))
             df[c], _ = pd.factorize(df[c])
             # Set feature type as categorical
-            df[c] = df[c].astype('category')
+            # df[c] = df[c].astype('category')
     elif cat_param["method"] == "bd":
         # categorical encoding mechanism 2:
         categorical_feats = [
@@ -273,9 +283,13 @@ def feature_generation(X, random_features=None, seed=None):
 def feature_selection(X_raw, y_raw, config, seed=CONSTANT.FEATURE_SELECTION_SEED):
 
     method = CONSTANT.feature_selection_param["method"]
+    feature_name = X_raw.columns.tolist()
+    n_selected_ratio = 0.2
+    n_selected_feature = int(0.2 * len(feature_name))
     X, y = data_balance(X_raw, y_raw, config)
     X, y = data_downsampling(X, y, config)
     selected_features = []
+
     if method == "imp":
         selected_features = _imp_feature_selection(X, y, config, seed)
     elif method == "nh":
@@ -284,12 +298,24 @@ def feature_selection(X_raw, y_raw, config, seed=CONSTANT.FEATURE_SELECTION_SEED
         selected_features = _rfe_feature_selection(X, y, config, seed)
     elif method == "sfm":
         selected_features =_sfm_feature_selection(X, y, config, seed)
-    elif method =="cor":
-        selected_features = _cor_feature_selection(X, y, config, seed)
+    elif method == "cor":
+        selected_features = _cor_feature_selection(X, y, config, n_selected_feature, seed)
+    elif method == "chi":
+        selected_features = _chi_feature_selection(X, y, config, n_selected_feature, seed)
     return X_raw[selected_features], selected_features
 
 @timeit
-def _cor_feature_selection(X_raw, y_raw, config, seed=None):
+def _chi_feature_selection(X_raw, y_raw, config, n_selected_feature, seed=None):
+
+    X_norm = MinMaxScaler().fit_transform(X_raw)
+    chi_selector = SelectKBest(chi2, k=n_selected_feature)
+    chi_selector.fit(X_norm, y_raw)
+    chi_support = chi_selector.get_support()
+    chi_feature = X_raw.loc[:, chi_support].columns.tolist()
+    return chi_feature
+
+@timeit
+def _cor_feature_selection(X_raw, y_raw, config, n_selected_feature, seed=None):
     cor_list = []
     # calculate the correlation with y for each feature
     feature_name = X_raw.columns.tolist()
@@ -298,10 +324,7 @@ def _cor_feature_selection(X_raw, y_raw, config, seed=None):
         cor_list.append(cor)
     # replace NaN with 0
     cor_list = [0 if np.isnan(i) else i for i in cor_list]
-    # feature name
-    n_selected_ratio = 0.2
-    n_selection_feature = int(0.2*len(feature_name))
-    cor_feature = X_raw.iloc[:, np.argsort(np.abs(cor_list))[-1*n_selection_feature:]].columns.tolist()
+    cor_feature = X_raw.iloc[:, np.argsort(np.abs(cor_list))[-1*n_selected_feature:]].columns.tolist()
     # feature selection? 0 for not select, 1 for select
     cor_support = [True if i in cor_feature else False for i in feature_name]
     return cor_feature

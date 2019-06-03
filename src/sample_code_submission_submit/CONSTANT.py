@@ -44,7 +44,8 @@ agg_primitives=[
         # 'trend', 'n_most_common'
 ]
 trans_primitives=[
-        'cum_mean', 'cum_min', 'cum_max'
+        'cum_mean', 'cum_min', 'cum_max',
+        'hour', 'week', 'month', 'year'
         #'percentile', 'cum_mean', 'cum_min', 'cum_count', 'cum_max'
         # 'subtract_numeric', 'add_numeric', 'diff', 'absolute',
         # 'modulo_numeric', 'hour', 'week', 'month', 'second', 'minute', 'weekday', 'year'
@@ -68,12 +69,13 @@ pre_lgb_params = {
         'verbose':-1
 }
 feature_selection_param = {
-    "method": "cor" # 4 options: "imp", "nhp", "rfe", "sfm", "cor"
+    "method": "chi" # 4 options: "imp", "nhp", "rfe", "sfm", "cor", "chi"
                     # "imp" for feature importance,
                     # "nh" for null hypothesis,
                     # "rfe" for recursive feature elimination,
                     # "sfm" for SelectFromModel
                     # "cor" for correlation
+                    # "chi" for Chi-2
 }
 
 # Switch and parameter of data balance
