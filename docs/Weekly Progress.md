@@ -261,3 +261,23 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 
 ![automl第1段](https://xijun-album.oss-cn-hangzhou.aliyuncs.com/automl_discussion/WechatIMG218.jpeg)
 
+## Time Window: 20190603~20190609
+
+### 特征工程
+
+1. 调通featuretools
+2. category特征用神经网络做embedding试一下
+3. 时间数据rolling修改
+4. 特征选择改用shap值
+
+### 模型参数：
+
+1. smac尝试
+2. 交叉验证
+
+### others：
+
+1. cython加速
+2. pipe的搜索
+
+#### 
