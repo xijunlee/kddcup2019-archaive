@@ -91,6 +91,7 @@ DOWNSAMPLING_RATIO = 0.5
 # Parameter of model ensemble
 ENSEMBLE = True
 ENSEMBLE_OBJ = 2  # currently 2 is better than 3
+AUTO = True
 
 # Parameter of categorical hash
 cat_hash_params = {
