@@ -266,8 +266,19 @@ https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7837936&tag=1
 ### 特征工程
 
 1. 调通featuretools
+
 2. category特征用神经网络做embedding试一下
+
+   - Treating some Continuous Variables as Categorical
+
+     We generally recommend treating month, year, day of week, and some other variables as categorical, even though they could be treated as continuous. Often for variables with a relatively small number of categories, this results in better performance. This is a modeling decision that the data scientist makes. Generally, we want to keep continuous variables represented by floating point numbers as continuous.
+
+   - **Whenever is possible, it’s best to treat things as categorical variables rather than as continuous variable.**
+
+   - **Rule of thumb is to keep categorical variables that don’t have very high cardinality. As in if a variable has unique levels for 90% of the observations then it wouldn’t be a very predictive variable and we may very well get rid of it.**
+
 3. 时间数据rolling修改
+
 4. 特征选择改用shap值
 
 ### 模型参数：

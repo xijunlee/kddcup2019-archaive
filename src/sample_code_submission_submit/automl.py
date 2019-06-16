@@ -15,7 +15,7 @@ from CONSTANT import ENSEMBLE, \
     ENSEMBLE_OBJ, \
     train_lgb_params, \
     HYPEROPT_SEED, \
-    DATA_SPLIT_SEED
+    DATA_SPLIT_SEED, SEED
 
 from util import Config, log, timeit
 
@@ -49,7 +49,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
         "objective": "binary",
         "metric": "auc",  # binary_logloss, auc
         "verbosity": -1,
-        "seed": 1,
+        "seed": SEED,
         "num_threads": 4,
         # "is_unbalance": True,
         # "scale_pos_weight": 2,
@@ -69,7 +69,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
                                      train_data,
                                      500,
                                      valid_data,
-                                     early_stopping_rounds=30,
+                                     early_stopping_rounds=20,
                                      verbose_eval=100,
                                      # feval=lgb_f1_score,
                                      # init_model=f"model_{hyperparams['ensemble_i']}"
@@ -84,7 +84,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
                                     train_data,
                                     200,
                                     valid_data,
-                                    early_stopping_rounds=30,
+                                    early_stopping_rounds=20,
                                     verbose_eval=100,
                                     # feval=lgb_f1_score
                                     )
@@ -113,7 +113,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
     # cross validation
     data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
-    data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
+    data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED).split(X, y)
     train_data_li = []
     valid_date_li = []
     for train_indices, valid_indices in data_gen:
@@ -146,7 +146,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         model_li = []
         for j in range(len(train_data_li)):
             model = lgb.train({**params, **hyperparams}, train_data_li[j], 300,
-                              valid_date_li[j], early_stopping_rounds=30, verbose_eval=0,
+                              valid_date_li[j], early_stopping_rounds=20, verbose_eval=0,
                               # feval=lgb_f1_score
                               )
             model_li.append(model)
@@ -253,10 +253,10 @@ def data_split(X: pd.DataFrame, y: pd.Series, test_size: float=0.2):
     return train_test_split(X, y, test_size=test_size, random_state=DATA_SPLIT_SEED)
 
 
-def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int=1000):
+def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int=3000):
     # -> (pd.DataFrame, pd.Series):
     if len(X) > nrows:
-        X_sample = X.sample(nrows, random_state=1)
+        X_sample = X.sample(nrows, random_state=SEED)
         y_sample = y[X_sample.index]
 
         # # for unbalanced data - take care of imbalance

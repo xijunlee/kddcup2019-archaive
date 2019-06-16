@@ -207,7 +207,6 @@ def main():
     datanames = sorted(os.listdir(DIRS['input']))
     mprint(f'Datanames: {datanames}')
     timer = Timer()
-    datanames = datanames[0]
     predictions = {}
     for dataname in datanames:
         mprint(f'Read data: {dataname}')

@@ -32,11 +32,6 @@ WINDOW_RATIO = 0.001
 REDUCTION_SWITCH = False
 VARIANCE_RATIO = 0.95 # the VARIANCE RAITO is used in PCA
 
-# Switch and parameter of feature generation
-FEATURE_GENERATION_SWITCH = False
-
-# Swich and parameter of feature generation using featuretools
-FEATURE_ENGINEERING_FT_SWITCH = True
 # Select the agg and trans primitives you want to look over
 agg_primitives=[
         # 'std', 'min', 'max', 'mean',
@@ -44,15 +39,29 @@ agg_primitives=[
         # 'trend', 'n_most_common'
 ]
 trans_primitives=[
-        'cum_mean', 'cum_min', 'cum_max',
-        'hour', 'week', 'month', 'year'
+        'cum_mean', 'cum_min', 'cum_max', 'cum_prod', 'cum_sum', 'second', 'minute'
         #'percentile', 'cum_mean', 'cum_min', 'cum_count', 'cum_max'
         # 'subtract_numeric', 'add_numeric', 'diff', 'absolute',
         # 'modulo_numeric', 'hour', 'week', 'month', 'second', 'minute', 'weekday', 'year'
 ]
 
-# Swich and parameter of feature generation using basing method
-FEATURE_ENGINEERING_BASE_SWITCH = False if FEATURE_ENGINEERING_FT_SWITCH else True
+num_generate_order = 2
+num_primitives = [
+    "cum_mean",
+    "cum_sum",
+    "cum_max",
+    "cum_min",
+    "cum_prod"
+]
+
+time_primitives = [
+    # "year",
+    # "month",
+    "day",
+    "hour",
+    "minute",
+    "second"
+]
 
 # Switch and parameter of feature selection
 FEATURE_SELECTION_SWITCH = True
@@ -69,10 +78,10 @@ pre_lgb_params = {
         'verbose':-1
 }
 feature_selection_param = {
-    "method": "chi" # 4 options: "imp", "nhp", "rfe", "sfm", "cor", "chi"
+    "method": "shap" # 4 options: "imp", "nhp", "shap", "sfm", "cor", "chi"
                     # "imp" for feature importance,
                     # "nh" for null hypothesis,
-                    # "rfe" for recursive feature elimination,
+                    # "shap" for shapely value,
                     # "sfm" for SelectFromModel
                     # "cor" for correlation
                     # "chi" for Chi-2
@@ -95,7 +104,7 @@ ENSEMBLE_OBJ = 2  # currently 2 is better than 3
 # Parameter of categorical hash
 cat_hash_params = {
     "cat": {
-        "method": "fact" # 3 options : "bd", "freq", "fact"
+        "method": "freq" # 3 options : "bd", "freq", "fact"
     },
     "multi_cat": {
         "method": "count" # 3 options: "freq", "count", "base"
@@ -105,24 +114,23 @@ cat_hash_params = {
 # Parameter of automl
 train_lgb_params = {
         "objective": "binary",
-        # 'boosting_type': 'rf',
+        "boosting_type": "rf",
         "metric": "auc",
         "verbosity": -1,
         "seed": None,
-        "num_threads": 4,
+        # "num_threads": 4,
+        'n_jobs': 4,
         # "is_unbalance": True
 }
 
 '''
 All kinds of seed
 '''
-# HYPEROPT_SEED = None
-# DOWNSAMPLING_SEED = None
-# DATA_BALANCE_SEED = None
-# FEATURE_SELECTION_SEED = None
 SEED = 1
 HYPEROPT_SEED = SEED
 DOWNSAMPLING_SEED = SEED
 DATA_BALANCE_SEED = SEED
 FEATURE_SELECTION_SEED = SEED
 DATA_SPLIT_SEED = SEED
+
+N_THREAD = 4
