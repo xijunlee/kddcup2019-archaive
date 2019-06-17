@@ -20,14 +20,15 @@ from sklearn.feature_selection import SelectFromModel
 from lightgbm import LGBMClassifier
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
-import shap
+# import shap
 # Oversampling of minority class
 # from imblearn.over_sampling import SMOTE
 from multiprocessing import Pool
+import time
 
 class MissingValueProcessor:
     def __init__(self):
-        self.missing_ratio = 1
+        self.missing_ratio = 0.7
         self.mv_dict = {}
 
     def time_missing_filter(self, df, time_feature_list):
@@ -284,6 +285,7 @@ def feature_engineer_rewrite(df, config):
     # multi_cat_param = CONSTANT.cat_hash_params["multi_cat"]
 
     df.reset_index(inplace=True, drop=True)
+    print(f"length of data: {len(df)}")
 
     num_feature_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
     cat_feature_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
@@ -291,48 +293,66 @@ def feature_engineer_rewrite(df, config):
     # time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
 
     # process category feature
+    st_time = time.time()
     catEncoder = CATEncoder()
     with Pool(processes=CONSTANT.N_THREAD) as pool:
         cat_list = pool.map(catEncoder.fit_transform, [df[col] for col in cat_feature_list])
         pool.close()
         pool.join()
+    ed_time = time.time()
+    print(f"duration of catEncoder.fit_transform: {ed_time-st_time}")
 
+    st_time = time.time()
     with Pool(processes=CONSTANT.N_THREAD) as pool:
         cat_raw_list = pool.map(catEncoder.factorize, [df[col] for col in cat_feature_list])
         pool.close()
         pool.join()
+    ed_time = time.time()
+    print(f"duration of catEncoder.factorize: {ed_time-st_time}")
 
     # process multi value feature
-    mveEncoder = MVEncoder()
-    with Pool(processes=CONSTANT.N_THREAD) as pool:
-        mul_list = pool.map(mveEncoder.fit_transform, [df[col] for col in mul_feature_list])
-        pool.close()
-        pool.join()
+    # st_time = time.time()
+    # mveEncoder = MVEncoder()
+    # with Pool(processes=CONSTANT.N_THREAD) as pool:
+    #     mul_list = pool.map(mveEncoder.fit_transform, [df[col] for col in mul_feature_list])
+    #     pool.close()
+    #     pool.join()
+    # ed_time = time.time()
+    # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
 
     # process number feature
     numGenerator = NUMGenerator()
+
     funcs, num_generate_order = CONSTANT.num_primitives, CONSTANT.num_generate_order
     order_feature_list = [[] for _ in range(num_generate_order)]
     order_feature_list[0] = [df[col] for col in num_feature_list]
     for i in range(1, num_generate_order):
         for func in funcs:
+            st_time = time.time()
             with Pool(processes=CONSTANT.N_THREAD) as pool:
                 order_feature_list[i] += pool.map(getattr(numGenerator, func), order_feature_list[i-1])
                 pool.close()
                 pool.join()
+            ed_time = time.time()
+            print(f"duration of numGenerator.{func}: {ed_time-st_time}")
     num_list = []
     for order_feature in order_feature_list:
         num_list += order_feature
 
+
+
     timeGenerator = TIMEGenrator()
     funcs, time_list = CONSTANT.time_primitives, []
     for func in funcs:
+        st_time = time.time()
         cmd = "timeGenerator." + func + "(df[config[\"time_col\"]])"
         time_list += [eval(cmd)]
+        ed_time = time.time()
+        print(f"duration of timeGenerator.{func}: {ed_time-st_time}")
 
-    ret = pd.concat(cat_list + cat_raw_list + mul_list + num_list + time_list, axis=1)
+    ret = pd.concat(cat_list + cat_raw_list + num_list + time_list, axis=1)
 
-    del df, cat_list, cat_raw_list, mul_list, num_list, time_list, order_feature_list
+    del df, cat_list, cat_raw_list, num_list, time_list, order_feature_list
     return ret
 
 
@@ -471,7 +491,9 @@ def data_reduction_test(df, scaler, pca):
 def data_downsampling(X, y, config, seed=CONSTANT.DOWNSAMPLING_SEED):
     origin_size = len(X)
     X["class"] = y
-    df_sampled = resample(X, replace=False, n_samples=int(origin_size*CONSTANT.DOWNSAMPLING_RATIO))
+    df_sampled = resample(X, replace=False,
+                          n_samples=int(origin_size * CONSTANT.DOWNSAMPLING_RATIO),
+                          random_state=seed)
     return df_sampled.drop(columns=["class"]), df_sampled["class"]
 
 @timeit
@@ -555,14 +577,19 @@ def feature_selection(X_raw, y_raw, config, seed=CONSTANT.FEATURE_SELECTION_SEED
     method = CONSTANT.feature_selection_param["method"]
     feature_name = X_raw.columns.tolist()
     n_selected_ratio = 0.5
-    n_selected_feature = int(n_selected_ratio * len(feature_name))
-    # X, y = data_balance(X_raw, y_raw, config)
-    # X, y = data_downsampling(X, y, config)
-    X, y = X_raw, y_raw
+    len_X_01 = int(len(X_raw) * 0.1)
+    len_feature = len(feature_name)
+    n_selected_feature = len_X_01 if len_X_01 <= len_feature else int(n_selected_ratio * len(feature_name))
+
+    if CONSTANT.DATA_BALANCE_SWITCH:
+        X, y = data_balance(X_raw, y_raw, config)
+    if CONSTANT.DATA_DOWNSAMPLING_SWITCH:
+        X, y = data_downsampling(X_raw, y_raw, config)
+    # X, y = X_raw, y_raw
     selected_features = []
 
     if method == "imp":
-        selected_features = _imp_feature_selection(X, y, config, seed)
+        selected_features = _imp_feature_selection(X, y, config, n_selected_feature, seed)
     elif method == "nh":
         selected_features = _nh_feature_selection(X, y, config, seed)
     elif method == "shap":
@@ -643,12 +670,15 @@ def _shap_feature_selection(X_raw, y_raw, config, n_selected_features, seed=None
     importance_df = importance_df.sort_values('shap_importance', ascending=False)
 
     selected_features = importance_df.iloc[:n_selected_features, 0]
-    # selected_features = importance_df.query("shap_importance > 0")["column_name"]
+    selected_features_gt_zero = importance_df.query("shap_importance > 0")["column_name"]
+
+    if len(selected_features_gt_zero) < n_selected_features:
+        return selected_features_gt_zero
 
     return selected_features
 
 @timeit
-def _imp_feature_selection(X_raw, y_raw, config, seed=None):
+def _imp_feature_selection(X_raw, y_raw, config, n_selected_features, seed=None):
     '''
     select feature based on feature importance
     :param X_raw:
@@ -658,16 +688,7 @@ def _imp_feature_selection(X_raw, y_raw, config, seed=None):
     :return:
     '''
 
-    # X, y = data_downsampling(X_raw, y_raw, config)
     X, y = X_raw, y_raw
-    # if CONSTANT.cat_hash_params["cat"]["method"] == "fact":
-    #     categorical_feats = [
-    #         col for col in X.columns if col.startswith(CONSTANT.CATEGORY_PREFIX)
-    #     ]
-    # else:
-    #     categorical_feats = []
-
-    # categorical_feats = [c for c in X.columns if X[c].dtype == "object"]
 
     train_features = X.columns
     # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
@@ -686,10 +707,14 @@ def _imp_feature_selection(X_raw, y_raw, config, seed=None):
     imp_df["importance_split"] = clf.feature_importance(importance_type='split')
     imp_df['trn_score'] = roc_auc_score(y, clf.predict(X))
 
-    # imp_df.sort_values(by=["importance_gain"], ascending=False, inplace=True)
+    imp_df.sort_values(by=["importance_gain"], ascending=False, inplace=True)
 
     selected_features = []
-    selected_features = imp_df.query("importance_gain > 0")["feature"]
+    selected_features_gt_zero = imp_df.query("importance_gain > 0")["feature"]
+    selected_features = imp_df.iloc[:n_selected_features, 0]
+
+    if len(selected_features_gt_zero) < n_selected_features:
+        return selected_features_gt_zero
 
     return selected_features
 

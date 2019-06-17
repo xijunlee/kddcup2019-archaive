@@ -76,8 +76,8 @@ def temporal_join(u, v, v_name, key, time_col):
 
     timer.check("group & rolling & agg")
 
-    tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
-    timer.check("reset_index")
+    # tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
+    # timer.check("reset_index")
 
     tmp_u.columns = tmp_u.columns.map(lambda a:
         f"{CONSTANT.NUMERICAL_PREFIX}{a[1].upper()}_ROLLING5({v_name}.{a[0]})")

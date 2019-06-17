@@ -1,16 +1,16 @@
 import os
 
-os.system("apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 04EE7237B7D453EC")
-os.system("apt-get --assume-yes update")
-os.system("apt-get --assume-yes install apt-utils libssl-dev libffi-dev \
-     libxml2-dev libxslt1-dev libdpkg-perl libgcc_s.so.1")
-os.system("apt-get --assume-yes autoremove")
+# os.system("apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 04EE7237B7D453EC")
+# os.system("apt-get --assume-yes update")
+# os.system("apt-get --assume-yes install apt-utils libssl-dev libffi-dev \
+#      libxml2-dev libxslt1-dev libdpkg-perl gcc")
+# os.system("apt-get --assume-yes autoremove")
 
 os.system("pip3 install -U --default-timeout=1000 pandas")
 os.system("pip3 install --default-timeout=1000 deap")
 os.system("pip3 install --default-timeout=1000 hyperopt")
 os.system("pip3 install --default-timeout=1000 lightgbm")
-os.system("pip3 install --default-timeout=1000 shap")
+# os.system("pip3 install --default-timeout=1000 shap")
 
 import copy
 import numpy as np
@@ -30,6 +30,8 @@ from preprocess import clean_df, \
     feature_engineer_rewrite
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
+import gc
+gc.enable()
 
 # if BAYESIAN_OPT:
 #     from bayesml import predict, train, validate
@@ -59,25 +61,14 @@ class Model:
         self.tables = Xs
         main_table = Xs[MAIN_TABLE_NAME]
 
-        # if DATA_BALANCE_SWITCH:
-        #     main_table, y = data_balance(main_table, y, self.config)
-        #     Xs[MAIN_TABLE_NAME] = main_table
-        # there is no need doing data balance here
         clean_tables(self.tables)
         X = merge_table(self.tables, self.config)
         # X = clean_df(X)
-
-        # if FEATURE_ENGINEERING_FT_SWITCH:
-        #     X = feature_engineer_ft(X, self.config)
-        # else:
-        #     X = feature_engineer_base(X, self.config)
 
         X = feature_engineer_rewrite(X, self.config)
 
         if FEATURE_SELECTION_SWITCH:
             X, self.selected_features = feature_selection(X, y, self.config)
-        if REDUCTION_SWITCH:
-            X, self.scaler, self.pca = data_reduction_train(X)
         train(X, y, self.config)
 
     @timeit
@@ -89,15 +80,8 @@ class Model:
         main_table.index = main_table.index.map(lambda x: f"{x[0]}_{x[1]}")
         Xs[MAIN_TABLE_NAME] = main_table
 
-        # clean_tables({"main_table":Xs[MAIN_TABLE_NAME]})
         Xs[MAIN_TABLE_NAME] = clean_df(Xs[MAIN_TABLE_NAME])
         X = merge_table(Xs, self.config)
-
-        # X = clean_df(X)
-        # if FEATURE_ENGINEERING_FT_SWITCH:
-        #     X = feature_engineer_ft(X, self.config)
-        # else:
-        #     X = feature_engineer_base(X, self.config)
 
         X = feature_engineer_rewrite(X, self.config)
 

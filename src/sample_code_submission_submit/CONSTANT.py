@@ -56,7 +56,7 @@ num_primitives = [
 
 time_primitives = [
     # "year",
-    # "month",
+    "month",
     "day",
     "hour",
     "minute",
@@ -78,7 +78,7 @@ pre_lgb_params = {
         'verbose':-1
 }
 feature_selection_param = {
-    "method": "shap" # 4 options: "imp", "nhp", "shap", "sfm", "cor", "chi"
+    "method": "imp" # 4 options: "imp", "nhp", "shap", "sfm", "cor", "chi"
                     # "imp" for feature importance,
                     # "nh" for null hypothesis,
                     # "shap" for shapely value,
@@ -88,14 +88,14 @@ feature_selection_param = {
 }
 
 # Switch and parameter of data balance
-DATA_BALANCE_SWITCH = False
+DATA_BALANCE_SWITCH = True
 SAMPLE_UP_OR_DOWN = "down"
 
 
 BAYESIAN_OPT = False
 # Switch and parameter of data downsampling
 DATA_DOWNSAMPLING_SWITCH = False
-DOWNSAMPLING_RATIO = 0.5
+DOWNSAMPLING_RATIO = 0.6
 
 # Parameter of model ensemble
 ENSEMBLE = True
@@ -126,7 +126,7 @@ train_lgb_params = {
 '''
 All kinds of seed
 '''
-SEED = 1
+SEED = None
 HYPEROPT_SEED = SEED
 DOWNSAMPLING_SEED = SEED
 DATA_BALANCE_SEED = SEED

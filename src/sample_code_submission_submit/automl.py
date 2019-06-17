@@ -253,7 +253,7 @@ def data_split(X: pd.DataFrame, y: pd.Series, test_size: float=0.2):
     return train_test_split(X, y, test_size=test_size, random_state=DATA_SPLIT_SEED)
 
 
-def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int=3000):
+def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int=2000):
     # -> (pd.DataFrame, pd.Series):
     if len(X) > nrows:
         X_sample = X.sample(nrows, random_state=SEED)
