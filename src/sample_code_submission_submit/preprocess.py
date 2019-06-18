@@ -43,16 +43,16 @@ class MissingValueProcessor:
         return filter_feature
 
     def num_fit_transform(self, col):
-        return col.fillna(col.mean())
+        col.fillna(col.mean())
 
     def cat_fit_transform(self, col):
-        return col.fillna(col.mode())
+        col.fillna(col.mode())
 
     def mv_fit_transform(self, col):
-        return col.fillna("0")
+        col.fillna("0")
 
     def time_fit_transform(self, col):
-        return col.fillna(datetime.datetime(1970,1,1))
+        col.fillna(datetime.datetime(1970,1,1))
 
     def mv_count(self, col):
         pass
@@ -197,11 +197,12 @@ class TIMEGenrator:
 def clean_tables(tables):
     for tname in tables:
         log(f"cleaning table {tname}")
-        tables[tname] = clean_df(tables[tname])
+        clean_df(tables[tname])
 
 @timeit
 def clean_df(df):
-    return fillna_rewrite(df)
+    # return fillna_rewrite(df)
+    fillna_rewrite(df)
 
 @timeit
 def fillna_rewrite(df):
@@ -219,30 +220,34 @@ def fillna_rewrite(df):
     mul_feature_list = [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]
 
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        num_list = pool.map(mvp.num_fit_transform, [df[col] for col in num_feature_list])
+        # num_list = pool.map(mvp.num_fit_transform, [df[col] for col in num_feature_list])
+        pool.map(mvp.num_fit_transform, [df[col] for col in num_feature_list])
         pool.close()
         pool.join()
 
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        cat_list = pool.map(mvp.cat_fit_transform, [df[col] for col in cat_feature_list])
+        # cat_list = pool.map(mvp.cat_fit_transform, [df[col] for col in cat_feature_list])
+        pool.map(mvp.cat_fit_transform, [df[col] for col in cat_feature_list])
         pool.close()
         pool.join()
 
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        mul_list = pool.map(mvp.mv_fit_transform, [df[col] for col in mul_feature_list])
+        # mul_list = pool.map(mvp.mv_fit_transform, [df[col] for col in mul_feature_list])
+        pool.map(mvp.mv_fit_transform, [df[col] for col in mul_feature_list])
         pool.close()
         pool.join()
 
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        time_list = pool.map(mvp.time_fit_transform, [df[col] for col in time_feature_list])
+        # time_list = pool.map(mvp.time_fit_transform, [df[col] for col in time_feature_list])
+        pool.map(mvp.time_fit_transform, [df[col] for col in time_feature_list])
         pool.close()
         pool.join()
     # time_list = [df[col] for col in time_feature_list]
 
-    ret = pd.concat(num_list + cat_list + mul_list + time_list, axis=1)
+    # ret = pd.concat(num_list + cat_list + mul_list + time_list, axis=1)
 
-    del df, num_list, cat_list, mul_list, time_list
-    return ret
+    # del df, num_list, cat_list, mul_list, time_list
+    # return ret
 
 @timeit
 def fillna(df):
@@ -489,11 +494,21 @@ def data_reduction_test(df, scaler, pca):
 
 @timeit
 def data_downsampling(X, y, config, seed=CONSTANT.DOWNSAMPLING_SEED):
-    origin_size = len(X)
+    # origin_size = len(X)
     X["class"] = y
-    df_sampled = resample(X, replace=False,
-                          n_samples=int(origin_size * CONSTANT.DOWNSAMPLING_RATIO),
+    len_sample_1 = len(X[X["class"] == 1])
+    len_sample_0 = len(X[X["class"] == 0])
+    df_sampled_1 = resample(X[X["class"] == 1], replace=False,
+                          n_samples=int(len_sample_1 * CONSTANT.DOWNSAMPLING_RATIO),
                           random_state=seed)
+    df_sampled_0 = resample(X[X["class"] == 0], replace=False,
+                            n_samples=int(len_sample_0 * CONSTANT.DOWNSAMPLING_RATIO),
+                            random_state=seed)
+
+    # return df_sampled.drop(columns=["class"]), df_sampled["class"]
+    df_sampled = pd.concat([df_sampled_0, df_sampled_1], axis=0)
+
+    del X, y, df_sampled_1, df_sampled_0
     return df_sampled.drop(columns=["class"]), df_sampled["class"]
 
 @timeit
@@ -581,11 +596,11 @@ def feature_selection(X_raw, y_raw, config, seed=CONSTANT.FEATURE_SELECTION_SEED
     len_feature = len(feature_name)
     n_selected_feature = len_X_01 if len_X_01 <= len_feature else int(n_selected_ratio * len(feature_name))
 
-    if CONSTANT.DATA_BALANCE_SWITCH:
-        X, y = data_balance(X_raw, y_raw, config)
-    if CONSTANT.DATA_DOWNSAMPLING_SWITCH:
-        X, y = data_downsampling(X_raw, y_raw, config)
-    # X, y = X_raw, y_raw
+    # if CONSTANT.DATA_BALANCE_SWITCH:
+    #     X, y = data_balance(X_raw, y_raw, config)
+    # if CONSTANT.DATA_DOWNSAMPLING_SWITCH:
+    #     X, y = data_downsampling(X_raw, y_raw, config)
+    X, y = X_raw, y_raw
     selected_features = []
 
     if method == "imp":

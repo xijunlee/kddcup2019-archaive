@@ -51,7 +51,7 @@ num_primitives = [
     "cum_sum",
     "cum_max",
     "cum_min",
-    "cum_prod"
+    "cum_prod",
 ]
 
 time_primitives = [
@@ -95,7 +95,7 @@ SAMPLE_UP_OR_DOWN = "down"
 BAYESIAN_OPT = False
 # Switch and parameter of data downsampling
 DATA_DOWNSAMPLING_SWITCH = False
-DOWNSAMPLING_RATIO = 0.6
+DOWNSAMPLING_RATIO = 0.02
 
 # Parameter of model ensemble
 ENSEMBLE = True

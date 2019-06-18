@@ -22,12 +22,15 @@ from CONSTANT import MAIN_TABLE_NAME, \
     DATA_BALANCE_SWITCH, \
     BAYESIAN_OPT,\
     ENSEMBLE, \
-    ENSEMBLE_OBJ
+    ENSEMBLE_OBJ, \
+    DATA_DOWNSAMPLING_SWITCH
 from merge import merge_table
 from preprocess import clean_df, \
     clean_tables, \
     feature_selection, \
-    feature_engineer_rewrite
+    feature_engineer_rewrite, \
+    data_balance, \
+    data_downsampling
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
 import gc
@@ -60,8 +63,11 @@ class Model:
         # self.tables = copy.deepcopy(Xs)
         self.tables = Xs
         main_table = Xs[MAIN_TABLE_NAME]
+        if DATA_DOWNSAMPLING_SWITCH:
+            self.tables[MAIN_TABLE_NAME], y = data_downsampling(self.tables[MAIN_TABLE_NAME], y, self.config)
 
         clean_tables(self.tables)
+
         X = merge_table(self.tables, self.config)
         # X = clean_df(X)
 
@@ -80,7 +86,8 @@ class Model:
         main_table.index = main_table.index.map(lambda x: f"{x[0]}_{x[1]}")
         Xs[MAIN_TABLE_NAME] = main_table
 
-        Xs[MAIN_TABLE_NAME] = clean_df(Xs[MAIN_TABLE_NAME])
+        # Xs[MAIN_TABLE_NAME] = clean_df(Xs[MAIN_TABLE_NAME])
+        clean_df(Xs[MAIN_TABLE_NAME])
         X = merge_table(Xs, self.config)
 
         X = feature_engineer_rewrite(X, self.config)
