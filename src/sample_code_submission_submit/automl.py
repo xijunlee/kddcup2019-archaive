@@ -8,7 +8,8 @@ from hyperopt import STATUS_OK, Trials, hp, space_eval, tpe
 from sklearn.metrics import roc_auc_score, f1_score
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split, StratifiedKFold
-from CONSTANT import ENSEMBLE, ENSEMBLE_OBJ, AUTO
+from sklearn.linear_model import LogisticRegression
+from CONSTANT import ENSEMBLE, ENSEMBLE_OBJ, AUTO, STACKING, STACKING_METHOD, HPO_EVALS, ENSEMBLE_SIZE, STOCHASTIC_CV, TRAIN_DATA_SIZE
 from deap import creator, tools
 from itertools import chain
 import time
@@ -64,31 +65,90 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
         # "scale_pos_weight": 2,
     }
 
-    X_sample, y_sample = data_sample(X, y, 30000)
-
-    X_train, X_val, y_train, y_val = data_split(X, y, 0.2)
+    # X_sample, y_sample = data_sample(X, y, TRAIN_DATA_SIZE)
 
     if ENSEMBLE:
-        hyperparams_li = hyperopt_lightgbm(X_sample, y_sample, params, config)
-        # hyperparams_li = smac_lightgbm(X_sample, y_sample, params, config)
-        train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=False)
-        valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=False)
+        hyperparams_li = hyperopt_lightgbm(X, y, params, config)
+        # hyperparams_li = smac_lightgbm(X, y, params, config)
 
-        config["model"] = [lgb.train({**params, **hyperparams, **{"learning_rate": 0.1, "num_boost_round": 300}},
-                                     train_data,
-                                     300,
-                                     valid_data,
-                                     early_stopping_rounds=30,
-                                     verbose_eval=100,
-                                     callbacks=[lgb.reset_parameter(learning_rate=learning_rate_decay)],
-                                     # feval=lgb_f1_score,
-                                     # init_model=f"model_{hyperparams['ensemble_i']}"
-                                     )
-                           for hyperparams in hyperparams_li]
+        if STACKING:
+            # X_train, X_val, y_train, y_val = data_split(X, y, 0.1)
+            #
+            # train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=False)
+            # valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=False)
+
+            # cross validation
+            data = lgb.Dataset(X, label=y, free_raw_data=False)
+            data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
+            train_data_li = []
+            valid_date_li = []
+            valid_indices_li = []
+            for train_indices, valid_indices in data_gen:
+                train_data_li.append(data.subset(train_indices))
+                valid_date_li.append(data.subset(valid_indices))
+                valid_indices_li.append(valid_indices)
+            data_indices = np.concatenate(valid_indices_li)
+
+            config["model"] = [[lgb.train({**params, **hyperparams, **{"learning_rate": 0.1, "num_boost_round": 300}},
+                                         train_data_li[i],
+                                         300,
+                                         valid_date_li[i],
+                                         early_stopping_rounds=30,
+                                         verbose_eval=100,
+                                         callbacks=[lgb.reset_parameter(learning_rate=learning_rate_decay)],
+                                         # feval=lgb_f1_score,
+                                         # init_model=f"model_{hyperparams['ensemble_i']}"
+                                         ) for i in range(5)]
+                               for hyperparams in hyperparams_li]
+
+            predicts = np.zeros(len(y))
+            predicts_li = []
+            for model in config["model"]:
+                predicts[data_indices] = np.concatenate([model[i].predict(valid_date_li[i].data) for i in range(5)])
+                predicts_li.append(predicts)
+            ys = np.transpose(np.array(predicts_li))
+            if STACKING_METHOD == 0:
+                class_weight = {1: 1 - np.sum(y) / len(y), 0: np.sum(y) / len(y)}
+                config["stacker_model"] = LogisticRegression(class_weight=class_weight, n_jobs=4,
+                                                             max_iter=500, random_state=1).fit(ys, y)
+            else:
+                ys_train, ys_val, y_train, y_val = data_split(ys, y, 0.1)
+                train_data = lgb.Dataset(ys_train, label=y_train, free_raw_data=False)
+                valid_data = lgb.Dataset(ys_val, label=y_val, free_raw_data=False)
+                config["stacker_model"] = lgb.train({**params, **{"learning_rate": 0.1, "num_boost_round": 300}},
+                                         train_data,
+                                         300,
+                                         valid_data,
+                                         early_stopping_rounds=30,
+                                         verbose_eval=100,
+                                         callbacks=[lgb.reset_parameter(learning_rate=learning_rate_decay)],
+                                         # feval=lgb_f1_score,
+                                         # init_model=f"model_{hyperparams['ensemble_i']}"
+                                         )
+        else:
+            X_train, X_val, y_train, y_val = data_split(X, y, 0.2)
+
+            # hyperparams_li = smac_lightgbm(X_sample, y_sample, params, config)
+            train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=False)
+            valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=False)
+
+            config["model"] = [lgb.train({**params, **hyperparams, **{"learning_rate": 0.1, "num_boost_round": 300}},
+                                         train_data,
+                                         300,
+                                         valid_data,
+                                         early_stopping_rounds=30,
+                                         verbose_eval=100,
+                                         callbacks=[lgb.reset_parameter(learning_rate=learning_rate_decay)],
+                                         # feval=lgb_f1_score,
+                                         # init_model=f"model_{hyperparams['ensemble_i']}"
+                                         )
+                               for hyperparams in hyperparams_li]
     else:
-        hyperparams = hyperopt_lightgbm(X_sample, y_sample, params, config)
-        train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=False)
-        valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=False)
+        X_train, X_val, y_train, y_val = data_split(X, y, 0.2)
+
+        hyperparams = hyperopt_lightgbm(X, y, params, config)
+        train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=True)
+        valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
 
         config["model"] = lgb.train({**params, **hyperparams, **{"learning_rate": 0.1, "num_boost_round": 500}},
                                     train_data,
@@ -104,7 +164,18 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
 @timeit
 def predict_lightgbm(X: pd.DataFrame, config: Config) -> List:
     if ENSEMBLE:
-        return np.mean([model.predict(X) for model in config["model"]], axis=0)
+        if STACKING:
+            Xs = np.transpose(np.array([np.mean([model[i].predict(X) for i in range(5)], axis=0) for model in config["model"]]))
+            if STACKING_METHOD == 0:
+                predicts = config["stacker_model"].predict_proba(Xs)
+                ys = np.zeros(len(Xs))
+                ys[predicts[:, 0] >= 0.5] = config["stacker_model"].classes_[0]
+                ys[predicts[:, 1] >= 0.5] = config["stacker_model"].classes_[1]
+                return ys
+            else:
+                return config["stacker_model"].predict(Xs)
+        else:
+            return np.mean([model.predict(X) for model in config["model"]], axis=0)
     else:
         return config["model"].predict(X)
 
@@ -123,26 +194,45 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
     # valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=free_raw_data)
 
     # cross validation
-    data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
-    data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
-    train_data_li = []
-    valid_date_li = []
-    valid_indices_li = []
-    for train_indices, valid_indices in data_gen:
-        train_data_li.append(data.subset(train_indices))
-        valid_date_li.append(data.subset(valid_indices))
-        valid_indices_li.append(valid_indices)
-    data_indices = np.concatenate(valid_indices_li)
+    if STOCHASTIC_CV:
+        data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
+        # data_gen = StratifiedKFold(n_splits=50, shuffle=True, random_state=1).split(X, y)
+
+        validate_set_num = int(np.ceil(TRAIN_DATA_SIZE / 5 / (len(y) / 50)))
+    else:
+        X, y = data_sample(X, y, TRAIN_DATA_SIZE)
+        data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
+        data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
+
+        train_data_li = []
+        valid_date_li = []
+        valid_indices_li = []
+        for train_indices, valid_indices in data_gen:
+            train_data_li.append(data.subset(train_indices))
+            valid_date_li.append(data.subset(valid_indices))
+            valid_indices_li.append(valid_indices)
+        data_indices = np.concatenate(valid_indices_li)
 
     def objective(hyperparams):
 
         model_li = []
-        for j in range(len(train_data_li)):
-            model = lgb.train({**params, **hyperparams}, train_data_li[j], 300,
-                              valid_date_li[j], early_stopping_rounds=30, verbose_eval=0,
+        if STOCHASTIC_CV:
+            X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=None)
+            X_train, X_val, y_train, y_val = data_split(X_, y_, test_size=0.2, random_state=None)
+            train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=True)
+            valid_date = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
+            model = lgb.train({**params, **hyperparams}, train_data, 300,
+                              valid_date, early_stopping_rounds=30, verbose_eval=0,
                               # feval=lgb_f1_score
                               )
             model_li.append(model)
+        else:
+            for j in range(len(train_data_li)):
+                model = lgb.train({**params, **hyperparams}, train_data_li[j], 300,
+                                  valid_date_li[j], early_stopping_rounds=30, verbose_eval=0,
+                                  # feval=lgb_f1_score
+                                  )
+                model_li.append(model)
 
         score = np.mean([model.best_score["valid_0"][params["metric"]] for model in model_li])
 
@@ -156,10 +246,16 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             # model_i = model_i + 1
 
             # predicts of valid set
-            # result_dict['predicts'] = np.round(np.mean([model.predict(data.data) for model in model_li], axis=0))
-            result_dict['predicts'] = np.zeros(data.num_data())
-            result_dict['predicts'][data_indices] = np.concatenate([model_li[j].predict(valid_date_li[j].data)
-                                                                    for j in range(len(valid_date_li))])
+            # result_dict['predicts'] = np.mean([model.predict(data.data) for model in model_li], axis=0)
+            if STOCHASTIC_CV:
+                if len(model_li) == 1:
+                    result_dict['predicts'] = model_li[0].predict(data.data)
+                else:
+                    result_dict['predicts'] = np.mean(model_li[0].predict(data.data), axis=0)
+            else:
+                result_dict['predicts'] = np.zeros(data.num_data())
+                result_dict['predicts'][data_indices] = np.concatenate([model_li[j].predict(valid_date_li[j].data)
+                                                                        for j in range(len(valid_date_li))])
 
             if ENSEMBLE_OBJ == 3:
                 # num of weak sub-models
@@ -175,7 +271,9 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             "bagging_fraction": 0.8,
             "learning_rate": 0.1
         })
-        cv_results = lgb.cv({**params}, data, 500, nfold=5, metrics="auc", early_stopping_rounds=30, verbose_eval=0)
+        X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=None)
+        train_data = lgb.Dataset(X_, label=y_, free_raw_data=True)
+        cv_results = lgb.cv({**params}, train_data, 500, nfold=5, metrics="auc", early_stopping_rounds=30, verbose_eval=0)
         params["num_boost_round"] = len(cv_results["auc-mean"])
         print("beat_cv_score: ", cv_results["auc-mean"][-1])
 
@@ -230,7 +328,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
-                             algo=hyperopt.tpe.suggest, max_evals=10, verbose=1,
+                             algo=hyperopt.tpe.suggest, max_evals=HPO_EVALS, verbose=1,
                              rstate=np.random.RandomState(1))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
@@ -327,7 +425,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         # # Method1: select top half of the classifiers according to auc
         # trials._dynamic_trials.sort(key=lambda data: data['result']['loss'])
         # best_li = [trial['misc']['vals']
-        #            for trial in trials._dynamic_trials[0:int(len(trials._dynamic_trials)/2)]]
+        #            for trial in trials._dynamic_trials[0:ENSEMBLE_SIZE]]
         # hyperparams_li = []
         # for best in best_li:
         #     for key in best:
@@ -355,7 +453,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
             pop.append(ind)
             i += 1
-        pop = tools.selNSGA2(pop, int(len(trial_li)/2))
+        pop = tools.selNSGA2(pop, ENSEMBLE_SIZE)
         # pop = tools.selNSGA2(pop, 20)
         hyperparams_li = list(pop)
 
@@ -496,7 +594,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 #         # # Method1: select top half of the classifiers according to auc
 #         # trials._dynamic_trials.sort(key=lambda data: data['result']['loss'])
 #         # best_li = [trial['misc']['vals']
-#         #            for trial in trials._dynamic_trials[0:int(len(trials._dynamic_trials)/2)]]
+#         #            for trial in trials._dynamic_trials[0:ENSEMBLE_SIZE]]
 #         # hyperparams_li = []
 #         # for best in best_li:
 #         #     for key in best:
@@ -524,7 +622,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 #
 #             pop.append(ind)
 #             i += 1
-#         pop = tools.selNSGA2(pop, int(len(trial_li)/2))
+#         pop = tools.selNSGA2(pop, ENSEMBLE_SIZE)
 #         # pop = tools.selNSGA2(pop, 20)
 #         hyperparams_li = list(pop)
 #
@@ -561,16 +659,16 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 #         return hyperparams
 
 
-def data_split(X: pd.DataFrame, y: pd.Series, test_size: float=0.2):
+def data_split(X: pd.DataFrame, y: pd.Series, test_size: float=0.2, random_state=1):
     #  -> (pd.DataFrame, pd.Series, pd.DataFrame, pd.Series):
-    return train_test_split(X, y, test_size=test_size, random_state=1, stratify=y)
+    return train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=y)
 
 
-def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int = 5000, method: int = 2):
+def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int = 5000, method: int = 2, random_state=1):
     # -> (pd.DataFrame, pd.Series):
     if len(X) > nrows:
         if method == 0:
-            X_sample = X.sample(nrows, random_state=1)
+            X_sample = X.sample(nrows, random_state=random_state)
             y_sample = y[X_sample.index]
         elif method == 1:
             # for unbalanced data - take care of imbalance
@@ -578,7 +676,7 @@ def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int = 5000, method: int = 
             rate = pd.DataFrame(data=[[1, len(y) - np.sum(y)], [0, np.sum(y)]],
                                 columns=['label', 'rate'])
             X_sample = X_sample.merge(rate, on='label') \
-                .sample(nrows, random_state=1, weights='rate')
+                .sample(nrows, random_state=random_state, weights='rate')
             y_sample = X_sample['label']
             X_sample = X_sample.drop(['label', 'rate'], axis=1)
         else:
@@ -587,10 +685,10 @@ def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int = 5000, method: int = 
             X_sample = X.assign(label=y)
             X_sample_1 = X_sample \
                 .query("label == 1") \
-                .sample(nrows_1, random_state=1)
+                .sample(nrows_1, random_state=random_state)
             X_sample_0 = X_sample \
                 .query("label == 0") \
-                .sample(nrows - nrows_1, random_state=1)
+                .sample(nrows - nrows_1, random_state=random_state)
             X_sample = pd.concat([X_sample_0, X_sample_1],
                                  sort=False,
                                  ignore_index=True)

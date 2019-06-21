@@ -1,17 +1,4 @@
 import os
-# import subprocess
-# mem_available = subprocess.run('cat /proc/meminfo | grep MemAvailable', shell=True).stdout
-
-str_sh1 = "apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 04EE7237B7D453EC"
-str_sh2= "apt-get --assume-yes update"
-str_sh3 = "apt-get --assume-yes install python3 python-dev python3-dev \
-     build-essential libssl-dev libffi-dev \
-     libxml2-dev libxslt1-dev zlib1g-dev \
-     python-pip swig"
-
-os.system(str_sh1)
-os.system(str_sh2)
-os.system(str_sh3)
 
 # os.system("apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 04EE7237B7D453EC")
 # os.system("apt-get --assume-yes update")
@@ -27,8 +14,8 @@ os.system("pip3 install category_encoders")
 os.system("pip3 install bayesian-optimization")
 # os.system("pip3 install smac")
 # os.system("pip3 install numbers")
-os.system("pip3 install psutil")
-os.system("pip3 install featuretools")
+# os.system("pip3 install psutil")
+# os.system("pip3 install featuretools")
 
 
 import copy
@@ -58,7 +45,7 @@ from preprocess import clean_df, \
     feature_engineer_ft
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
-import featuretools as ft
+# import featuretools as ft
 
 if BAYESIAN_OPT:
     from bayesml import predict, train, validate

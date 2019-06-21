@@ -71,11 +71,16 @@ def temporal_join(u, v, v_name, key, time_col):
                  and not col.startswith(CONSTANT.TIME_PREFIX)
                  and not col.startswith(CONSTANT.MULTI_CAT_PREFIX)}
 
-    tmp_u = tmp_u.groupby(rehash_key).rolling(window_size).agg(agg_funcs)
-    timer.check("group & rolling & agg")
+    # tmp_u = tmp_u.groupby(rehash_key).rolling(window=5, min_periods=1).agg(agg_funcs).fillna(0)
+    # timer.check("group & rolling & agg")
+    # tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
+    # timer.check("reset_index")
 
-    tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
-    timer.check("reset_index")
+    tmp2_u = tmp_u.groupby(rehash_key).rolling(window='200ms', on=time_col).agg(agg_funcs).fillna(0)
+    tmp_u = tmp_u.reset_index().merge(tmp2_u.reset_index(),
+                                  on=[rehash_key, time_col],
+                                  how='left').set_index(['level_0', 'level_1']).filter(tmp2_u.columns)
+    timer.check("group & rolling & agg")
 
     tmp_u.columns = tmp_u.columns.map(lambda a:
         f"{CONSTANT.NUMERICAL_PREFIX}{a[1].upper()}_ROLLING5({v_name}.{a[0]})")
@@ -84,10 +89,14 @@ def temporal_join(u, v, v_name, key, time_col):
         log("empty tmp_u, return u")
         return u
 
-    ret = pd.concat([u, tmp_u.loc['u']], axis=1, sort=False)
+    # ret = pd.concat([u, tmp_u3.loc['u']], axis=1, sort=False)
+    ret = u.merge(tmp_u.loc['u'],
+                  right_index=True,
+                  left_index=True,
+                  how="outer")
     timer.check("final concat")
 
-    del tmp_u
+    del tmp_u, tmp2_u
 
     return ret
 

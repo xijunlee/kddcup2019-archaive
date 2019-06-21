@@ -91,7 +91,13 @@ DOWNSAMPLING_RATIO = 0.5
 # Parameter of model ensemble
 ENSEMBLE = True
 ENSEMBLE_OBJ = 2  # currently 2 is better than 3
+ENSEMBLE_SIZE = 5
+HPO_EVALS = 10
 AUTO = True
+STACKING = False
+STACKING_METHOD = 1  # 0: lr; 1: lgb
+STOCHASTIC_CV = False
+TRAIN_DATA_SIZE = 30000
 
 # Parameter of categorical hash
 cat_hash_params = {

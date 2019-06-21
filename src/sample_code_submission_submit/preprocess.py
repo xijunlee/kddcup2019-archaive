@@ -92,6 +92,9 @@ def feature_engineer_base(df, config):
 @timeit
 def transform_datetime(df, config):
     for c in [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]:
+        # df[c] = df.apply(lambda row: row[c].timestamp(), axis=1)
+        # min_time = df[c].min()
+        # df[c] = df[c] - min_time
         df.drop(c, axis=1, inplace=True)
     return df
 
