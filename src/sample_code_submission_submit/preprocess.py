@@ -6,29 +6,22 @@ from sklearn.decomposition import PCA
 from sklearn.utils import resample
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
-# from sklearn.impute import SimpleImputer
-from sklearn.feature_selection import RFE, RFECV
-from lightgbm import LGBMClassifier
 import lightgbm as lgb
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold, train_test_split
-# import category_encoders as ce
 import random
-# if CONSTANT.FEATURE_ENGINEERING_FT_SWITCH:
-#     import featuretools as ft
 from sklearn.feature_selection import SelectFromModel
 from lightgbm import LGBMClassifier
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
 # import shap
-# Oversampling of minority class
-# from imblearn.over_sampling import SMOTE
 from multiprocessing import Pool
 import time
+import os
 
 class MissingValueProcessor:
     def __init__(self):
-        self.missing_ratio = 0.7
+        self.missing_ratio_threshold = 0.7
         self.mv_dict = {}
 
     def time_missing_filter(self, df, time_feature_list):
@@ -39,14 +32,14 @@ class MissingValueProcessor:
         feature_name = df.columns
         missing_ratio = df.isnull().sum(axis=0).values.astype('float') / df.shape[0]
         df_feature_missing = pd.DataFrame({"feature_name": feature_name, "missing_ratio": missing_ratio})
-        filter_feature = df_feature_missing.query(f"missing_ratio <= {self.missing_ratio}")["feature_name"].values
-        return filter_feature
+        drop_features = df_feature_missing.query(f"missing_ratio > {self.missing_ratio_threshold}")["feature_name"].values
+        return drop_features
 
     def num_fit_transform(self, col):
         col.fillna(col.mean())
 
     def cat_fit_transform(self, col):
-        col.fillna(col.mode())
+        col.fillna(col.mode()[0])
 
     def mv_fit_transform(self, col):
         col.fillna("0")
@@ -83,7 +76,7 @@ def seperate(x):
 
 class MVEncoder:
 
-    def __init__(self, max_cat_num=1000):
+    def __init__(self, max_cat_num=600):
         self.max_cat_num = max_cat_num
 
     def encode(self, cats):
@@ -202,46 +195,83 @@ def clean_tables(tables):
 @timeit
 def clean_df(df):
     # return fillna_rewrite(df)
-    fillna_rewrite(df)
+    fillna_rewrite_seq(df)
+
+@timeit
+def fillna_rewrite_seq(df):
+
+    # delete row whose time is nan
+    time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
+
+    # if len(time_feature_list):
+    #     mask = df[time_feature_list].isnull().any(axis=1)
+    #     df.drop(df[mask].index, inplace=True)
+
+    # filter feature whose raito not nan < 0.7
+    missing_ratio_threshold = 0.7
+    feature_name = df.columns
+    missing_ratio = df.isnull().sum(axis=0).values.astype('float') / df.shape[0]
+    df_feature_missing = pd.DataFrame({"feature_name": feature_name, "missing_ratio": missing_ratio})
+    drop_feature = df_feature_missing.query(f"missing_ratio > {missing_ratio_threshold}")["feature_name"].values
+    df.drop(columns=drop_feature, inplace=True)
+
+    num_feature_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
+    cat_feature_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
+    mul_feature_list = [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]
+    time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
+
+    for col in num_feature_list:
+        # mean = df[col].mean()
+        df[col].fillna(df[col].mean(), inplace=True)
+
+    for col in cat_feature_list:
+        # mode = df[col].mode()[0]
+        df[col].fillna(df[col].mode()[0], inplace=True)
+        df[col] = df[col].astype("category")
+
+
+    for col in mul_feature_list:
+        df[col].fillna("0", inplace=True)
+
+    for col in time_feature_list:
+        df[col].fillna(datetime.datetime(1970, 1, 1), inplace=True)
 
 @timeit
 def fillna_rewrite(df):
     mvp = MissingValueProcessor()
     time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
 
-    if len(time_feature_list):
-        df = mvp.time_missing_filter(df, time_feature_list)
+    # if len(time_feature_list):
+    #     df = mvp.time_missing_filter(df, time_feature_list)
 
-    filter_feature = mvp.feature_filter(df)
-    df = df.loc[:, filter_feature]
+    drop_features = mvp.feature_filter(df)
+    df.drop(columns=drop_features, inplace=True)
 
     num_feature_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
     cat_feature_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
     mul_feature_list = [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]
 
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        # num_list = pool.map(mvp.num_fit_transform, [df[col] for col in num_feature_list])
         pool.map(mvp.num_fit_transform, [df[col] for col in num_feature_list])
         pool.close()
         pool.join()
-
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        # cat_list = pool.map(mvp.cat_fit_transform, [df[col] for col in cat_feature_list])
         pool.map(mvp.cat_fit_transform, [df[col] for col in cat_feature_list])
         pool.close()
         pool.join()
 
+    for col in cat_feature_list:
+        df[col].astype('category')
+
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        # mul_list = pool.map(mvp.mv_fit_transform, [df[col] for col in mul_feature_list])
         pool.map(mvp.mv_fit_transform, [df[col] for col in mul_feature_list])
         pool.close()
         pool.join()
-
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        # time_list = pool.map(mvp.time_fit_transform, [df[col] for col in time_feature_list])
         pool.map(mvp.time_fit_transform, [df[col] for col in time_feature_list])
         pool.close()
         pool.join()
+
     # time_list = [df[col] for col in time_feature_list]
 
     # ret = pd.concat(num_list + cat_list + mul_list + time_list, axis=1)
@@ -284,6 +314,22 @@ def fillna(df):
         df[c].fillna("0", inplace=True)
 
 @timeit
+def feature_engineer_rewrite_seq(df, config):
+    df.reset_index(inplace=True, drop=True)
+    print(f"length of data: {len(df)}")
+
+    num_feature_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
+    cat_feature_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
+    mul_feature_list = [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]
+    time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
+
+    catEncoder = CATEncoder()
+    for col in cat_feature_list:
+        df = df.join(catEncoder.fit_transform(df[col]))
+        df = df.join(catEncoder.factorize(df[col]))
+    print(df)
+
+@timeit
 def feature_engineer_rewrite(df, config):
 
     # cat_param = CONSTANT.cat_hash_params["cat"]
@@ -300,6 +346,7 @@ def feature_engineer_rewrite(df, config):
     # process category feature
     st_time = time.time()
     catEncoder = CATEncoder()
+
     with Pool(processes=CONSTANT.N_THREAD) as pool:
         cat_list = pool.map(catEncoder.fit_transform, [df[col] for col in cat_feature_list])
         pool.close()
@@ -314,20 +361,18 @@ def feature_engineer_rewrite(df, config):
         pool.join()
     ed_time = time.time()
     print(f"duration of catEncoder.factorize: {ed_time-st_time}")
-
     # process multi value feature
-    # st_time = time.time()
-    # mveEncoder = MVEncoder()
-    # with Pool(processes=CONSTANT.N_THREAD) as pool:
-    #     mul_list = pool.map(mveEncoder.fit_transform, [df[col] for col in mul_feature_list])
-    #     pool.close()
-    #     pool.join()
-    # ed_time = time.time()
-    # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+    st_time = time.time()
+    mveEncoder = MVEncoder()
+    with Pool(processes=CONSTANT.N_THREAD) as pool:
+        mul_list = pool.map(mveEncoder.fit_transform, [df[col] for col in mul_feature_list])
+        pool.close()
+        pool.join()
+    ed_time = time.time()
+    print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
 
     # process number feature
     numGenerator = NUMGenerator()
-
     funcs, num_generate_order = CONSTANT.num_primitives, CONSTANT.num_generate_order
     order_feature_list = [[] for _ in range(num_generate_order)]
     order_feature_list[0] = [df[col] for col in num_feature_list]
@@ -344,8 +389,6 @@ def feature_engineer_rewrite(df, config):
     for order_feature in order_feature_list:
         num_list += order_feature
 
-
-
     timeGenerator = TIMEGenrator()
     funcs, time_list = CONSTANT.time_primitives, []
     for func in funcs:
@@ -357,7 +400,7 @@ def feature_engineer_rewrite(df, config):
 
     ret = pd.concat(cat_list + cat_raw_list + num_list + time_list, axis=1)
 
-    del df, cat_list, cat_raw_list, num_list, time_list, order_feature_list
+    del cat_list, cat_raw_list, num_list, time_list, order_feature_list
     return ret
 
 
@@ -587,11 +630,12 @@ def feature_generation(X, random_features=None, seed=None):
         return X
 
 @timeit
-def feature_selection(X_raw, y_raw, config, seed=CONSTANT.FEATURE_SELECTION_SEED):
+def feature_selection(X_raw, y_raw, config, n_selected_ratio, seed=CONSTANT.FEATURE_SELECTION_SEED):
+
+    print("before feature selection")
 
     method = CONSTANT.feature_selection_param["method"]
     feature_name = X_raw.columns.tolist()
-    n_selected_ratio = 0.5
     len_X_01 = int(len(X_raw) * 0.1)
     len_feature = len(feature_name)
     n_selected_feature = len_X_01 if len_X_01 <= len_feature else int(n_selected_ratio * len(feature_name))
@@ -705,11 +749,12 @@ def _imp_feature_selection(X_raw, y_raw, config, n_selected_features, seed=None)
 
     X, y = X_raw, y_raw
 
-    train_features = X.columns
+    train_features = X.columns.values
     # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
     dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True)
     lgb_params = CONSTANT.pre_lgb_params
     lgb_params["seed"] = seed
+    lgb_params["colsample_bytree"] = np.sqrt(len(train_features)) / len(train_features)
     # Fit the model
     clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
     # if there still exist categorical features
@@ -717,7 +762,7 @@ def _imp_feature_selection(X_raw, y_raw, config, n_selected_features, seed=None)
 
     # Get feature importances
     imp_df = pd.DataFrame()
-    imp_df["feature"] = list(train_features)
+    imp_df["feature"] = train_features
     imp_df["importance_gain"] = clf.feature_importance(importance_type='gain')
     imp_df["importance_split"] = clf.feature_importance(importance_type='split')
     imp_df['trn_score'] = roc_auc_score(y, clf.predict(X))

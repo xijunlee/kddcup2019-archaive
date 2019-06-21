@@ -32,31 +32,18 @@ WINDOW_RATIO = 0.001
 REDUCTION_SWITCH = False
 VARIANCE_RATIO = 0.95 # the VARIANCE RAITO is used in PCA
 
-# Select the agg and trans primitives you want to look over
-agg_primitives=[
-        # 'std', 'min', 'max', 'mean',
-        # 'percent_true', 'last', 'count',
-        # 'trend', 'n_most_common'
-]
-trans_primitives=[
-        'cum_mean', 'cum_min', 'cum_max', 'cum_prod', 'cum_sum', 'second', 'minute'
-        #'percentile', 'cum_mean', 'cum_min', 'cum_count', 'cum_max'
-        # 'subtract_numeric', 'add_numeric', 'diff', 'absolute',
-        # 'modulo_numeric', 'hour', 'week', 'month', 'second', 'minute', 'weekday', 'year'
-]
-
 num_generate_order = 2
 num_primitives = [
     "cum_mean",
     "cum_sum",
     "cum_max",
     "cum_min",
-    "cum_prod",
+    # "cum_prod",
 ]
 
 time_primitives = [
     # "year",
-    "month",
+    # "month",
     "day",
     "hour",
     "minute",
@@ -71,7 +58,7 @@ pre_lgb_params = {
         'metric': 'auc',
         'subsample': 0.8,
         'colsample_bytree': 0.8,
-        'num_leaves': 100,
+        'num_leaves': 50,
         'max_depth': 8,
         'bagging_freq': 1,
         'n_jobs': 4,
@@ -88,28 +75,19 @@ feature_selection_param = {
 }
 
 # Switch and parameter of data balance
-DATA_BALANCE_SWITCH = True
+DATA_BALANCE_SWITCH = False
 SAMPLE_UP_OR_DOWN = "down"
 
 
 BAYESIAN_OPT = False
 # Switch and parameter of data downsampling
 DATA_DOWNSAMPLING_SWITCH = False
-DOWNSAMPLING_RATIO = 0.02
+DOWNSAMPLING_RATIO = 0.5
 
 # Parameter of model ensemble
 ENSEMBLE = True
 ENSEMBLE_OBJ = 2  # currently 2 is better than 3
 
-# Parameter of categorical hash
-cat_hash_params = {
-    "cat": {
-        "method": "freq" # 3 options : "bd", "freq", "fact"
-    },
-    "multi_cat": {
-        "method": "count" # 3 options: "freq", "count", "base"
-    }
-}
 
 # Parameter of automl
 train_lgb_params = {
@@ -118,7 +96,7 @@ train_lgb_params = {
         "metric": "auc",
         "verbosity": -1,
         "seed": None,
-        # "num_threads": 4,
+        "num_threads": 4,
         'n_jobs': 4,
         # "is_unbalance": True
 }
