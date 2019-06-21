@@ -7,8 +7,6 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from bayes_opt import BayesianOptimization
 
-from int_bayes import BayesianOptimizationIntKernel
-
 from util import Config, log, timeit
 
 
@@ -31,11 +29,10 @@ def validate(preds, y_path) -> np.float64:
 
 
 @timeit
-def BayesianSearch(evaluation, space, int_dim=None, num_iter=25, init_points=5):
+def BayesianSearch(evaluation, space, num_iter=25, init_points=5):
     """Bayesian Optimizer"""
     # create a Bayesian optimization object, and define the scopes of hyperparameters
-    bayes = BayesianOptimization(evaluation, space)
-    # bayes = BayesianOptimizationIntKernel(evaluation, space, int_dim=int_dim)
+    bayes = BayesianOptimization(evaluation, space, random_state=1)
     bayes.maximize(init_points=init_points, n_iter=num_iter)
     hyperparams = bayes.max['params']
 
@@ -91,8 +88,6 @@ def bayes_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Config):
         "min_child_weight": (0.5, 10),
     }
 
-    int_dim = [1, 4, 6]
-
     def GBM_evaluate(learning_rate, max_depth, num_leaves, feature_fraction, bagging_fraction, bagging_freq, reg_alpha,
                      reg_lambda, min_child_weight):
         """definition of evaluation of lightGBM"""
@@ -121,7 +116,7 @@ def bayes_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Config):
 
         return score
 
-    hyperparams = BayesianSearch(GBM_evaluate, space, int_dim=int_dim, num_iter=15, init_points=30)
+    hyperparams = BayesianSearch(GBM_evaluate, space, num_iter=0, init_points=30)
 
     return hyperparams
 
