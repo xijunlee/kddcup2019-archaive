@@ -61,15 +61,6 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
         # "scale_pos_weight": 2,
     }
 
-    # X_sample, y_sample = data_sample(X, y, 30000)
-    #
-    # if not DOUBLE_VAL:
-    #     X_train, X_val, y_train, y_val = data_split(X, y, 0.2)
-    # else:
-    #     X_train, X_val, y_train, y_val = data_split(X, y, 0.1)
-    #     X_train, X_val_extra, y_train, y_val_extra = data_split(X_train, y_train, 1/9)
-
-
     if ENSEMBLE:
         hyperparams_li = hyperopt_lightgbm(X, y, params, config)
         # hyperparams_li = smac_lightgbm(X, y, params, config)

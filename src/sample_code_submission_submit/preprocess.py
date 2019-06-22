@@ -865,7 +865,7 @@ def _nh_feature_selection(X_raw, y_raw, config, n_fold=10, seed=None):
 
 @timeit
 def drop_outlier(df):
-    un_time_list = [c for c in df if not c.startswith(CONSTANT.TIME_PREFIX)]
+    un_time_list = [c for c in df if not c.startswith(CONSTANT.TIME_PREFIX) and not c.startswith(CONSTANT.MULTI_CAT_PREFIX)]
     df_without_time = df[un_time_list]
     # origin_feature_list = [c for c in df_without_time if c[2:8] == TABLE_PREFIX]
     # df_without_time = df_without_time[origin_feature_list]

@@ -81,7 +81,7 @@ class Model:
         X = feature_engineer_rewrite(X.filter(selected_features), self.config)
 
         if FEATURE_SELECTION_SWITCH:
-            X, self.selected_features_1 = feature_selection(X, y , self.config, 0.8)
+            X, self.selected_features_1 = feature_selection(X, y , self.config, 0.7)
 
         train(X, y, self.config)
 
