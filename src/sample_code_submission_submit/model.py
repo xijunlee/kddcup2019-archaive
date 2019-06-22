@@ -23,14 +23,15 @@ from CONSTANT import MAIN_TABLE_NAME, \
     BAYESIAN_OPT,\
     ENSEMBLE, \
     ENSEMBLE_OBJ, \
-    DATA_DOWNSAMPLING_SWITCH, TIME_PREFIX, MULTI_CAT_PREFIX
+    DATA_DOWNSAMPLING_SWITCH, TIME_PREFIX, MULTI_CAT_PREFIX, NUMERICAL_PREFIX
 from merge import merge_table
 from preprocess import clean_df, \
     clean_tables, \
     feature_selection, \
-    feature_engineer_rewrite, feature_engineer_rewrite_seq, \
+    feature_engineer_rewrite, \
+    feature_engineer_rewrite_seq, \
     data_balance, \
-    data_downsampling
+    data_downsampling, test_data_feature_selection
 from util import Config, log, show_dataframe, timeit
 from deap import base, creator
 import gc
@@ -64,23 +65,23 @@ class Model:
 
         # self.tables = copy.deepcopy(Xs)
         self.tables = Xs
-        if DATA_DOWNSAMPLING_SWITCH:
-            self.tables[MAIN_TABLE_NAME], y = data_downsampling(self.tables[MAIN_TABLE_NAME], y, self.config)
         clean_tables(self.tables)
         X = merge_table(self.tables, self.config)
-        self.time_feature_list = [c for c in X if c.startswith(TIME_PREFIX)]
-        self.mul_feature_list = [c for c in X if c.startswith(MULTI_CAT_PREFIX)]
         clean_df(X)
 
+        self.time_feature_list = [c for c in X if c.startswith(TIME_PREFIX)]
+        self.mul_feature_list = [c for c in X if c.startswith(MULTI_CAT_PREFIX)]
+        self.num_feature_list = [c for c in X if c.startswith(NUMERICAL_PREFIX)]
+
         if FEATURE_SELECTION_SWITCH:
-            _, self.selected_features_0 = feature_selection(X.drop(columns=self.time_feature_list+self.mul_feature_list)
+            _, self.selected_features_0 = feature_selection(X.drop(columns=self.time_feature_list+self.mul_feature_list+self.num_feature_list)
                                                             , y, self.config, 0.5)
-        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list
+        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list + self.num_feature_list
 
         X = feature_engineer_rewrite(X.filter(selected_features), self.config)
 
         if FEATURE_SELECTION_SWITCH:
-            X, self.selected_features_1 = feature_selection(X, y , self.config, 0.8)
+            X, self.selected_features_1 = feature_selection(X, y , self.config, 0.5)
 
         train(X, y, self.config)
 
@@ -97,14 +98,17 @@ class Model:
         clean_df(Xs[MAIN_TABLE_NAME])
         X = merge_table(Xs, self.config)
         clean_df(X)
-        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list
+
+        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list + self.num_feature_list
         X = feature_engineer_rewrite(X.filter(selected_features), self.config)
 
         # X = X[X.index.str.startswith("test")]
         X = X.iloc[len_X_train:,]
         X.sort_index(inplace=True)
         if FEATURE_SELECTION_SWITCH:
+            test_data_feature_selection(X, self.selected_features_1)
             X = X[self.selected_features_1]
+
         result = predict(X, self.config)
 
         del self.tables, X_test
