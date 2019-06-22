@@ -767,12 +767,12 @@ def _imp_feature_selection(X_raw, y_raw, config, n_selected_features, seed=None)
     imp_df["feature"] = train_features
     imp_df["importance_gain"] = clf.feature_importance(importance_type='gain')
     imp_df["importance_split"] = clf.feature_importance(importance_type='split')
-    imp_df['trn_score'] = roc_auc_score(y, clf.predict(X))
+    # imp_df['trn_score'] = roc_auc_score(y, clf.predict(X))
 
     imp_df.sort_values(by=["importance_gain"], ascending=False, inplace=True)
 
     selected_features = []
-    selected_features_gt_zero = imp_df.query("importance_gain > 0")["feature"]
+    selected_features_gt_zero = imp_df.query("importance_gain > 0 and importance_split > 0")["feature"]
     selected_features = imp_df.iloc[:n_selected_features, 0]
 
     if len(selected_features_gt_zero) < n_selected_features:

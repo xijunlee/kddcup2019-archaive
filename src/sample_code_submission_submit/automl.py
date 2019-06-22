@@ -187,15 +187,16 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
     # train_data = lgb.Dataset(X, label=y_train)
     # valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=free_raw_data)
 
+    X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE)
+    data = lgb.Dataset(X_, label=y_, free_raw_data=free_raw_data)
+
     # cross validation
     if STOCHASTIC_CV:
-        data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
+        data_all = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
         # data_gen = StratifiedKFold(n_splits=50, shuffle=True, random_state=1).split(X, y)
 
-        validate_set_num = int(np.ceil(TRAIN_DATA_SIZE / 5 / (len(y) / 50)))
+        # validate_set_num = int(np.ceil(TRAIN_DATA_SIZE / 5 / (len(y) / 50)))
     else:
-        X, y = data_sample(X, y, TRAIN_DATA_SIZE)
-        data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
         data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
 
         train_data_li = []
@@ -243,9 +244,9 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             # result_dict['predicts'] = np.mean([model.predict(data.data) for model in model_li], axis=0)
             if STOCHASTIC_CV:
                 if len(model_li) == 1:
-                    result_dict['predicts'] = model_li[0].predict(data.data)
+                    result_dict['predicts'] = model_li[0].predict(data_all.data)
                 else:
-                    result_dict['predicts'] = np.mean(model_li[0].predict(data.data), axis=0)
+                    result_dict['predicts'] = np.mean(model_li[0].predict(data_all.data), axis=0)
             else:
                 result_dict['predicts'] = np.zeros(data.num_data())
                 result_dict['predicts'][data_indices] = np.concatenate([model_li[j].predict(valid_date_li[j].data)
@@ -263,13 +264,11 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             "num_leaves": 50,
             "feature_fraction": 0.8,
             "bagging_fraction": 0.8,
-            "learning_rate": 0.1
+            "learning_rate": 0.1,
         })
-        X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=None)
-        train_data = lgb.Dataset(X_, label=y_, free_raw_data=True)
-        cv_results = lgb.cv({**params}, train_data, 500, nfold=5, metrics="auc", early_stopping_rounds=30, verbose_eval=0)
+        cv_results = lgb.cv({**params}, data, 500, nfold=5, metrics="auc", early_stopping_rounds=30, verbose_eval=0)
         params["num_boost_round"] = len(cv_results["auc-mean"])
-        print("beat_cv_score: ", cv_results["auc-mean"][-1])
+        print("best_cv_score: ", cv_results["auc-mean"][-1])
 
         trial_li = []
 
@@ -292,13 +291,14 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         # print("beat_params: ", params)
 
         space = {
-            "max_depth": hp.choice("max_depth", [3, 5, 7, 9]),
+            "max_depth": hp.choice("max_depth", [2, 4, 6, 8]),
             "num_leaves": hp.choice("num_leaves", range(5, 200, 20)),
             "feature_fraction": hp.quniform("feature_fraction", 0.5, 0.9, 0.1),
-            "bagging_fraction": hp.quniform("bagging_fraction", 0.6, 1.0, 0.1),
+            "bagging_fraction": hp.quniform("bagging_fraction", 0.6, 0.9, 0.1),
             "bagging_freq": hp.choice("bagging_freq", [1, 2, 4, 7, 10]),
             "reg_alpha": hp.uniform("reg_alpha", 0, 1),
             "reg_lambda": hp.uniform("reg_lambda", 0, 1),
+            "boosting_type": hp.choice("boosting_type", ["gbdt", "rf"]),
             # "learning_rate": hp.loguniform("learning_rate", np.log(0.01), np.log(0.5)),
             # "max_depth": hp.choice("max_depth", [-1, 2, 3, 4, 5, 6]),
             # "num_leaves": hp.choice("num_leaves", np.linspace(10, 200, 50, dtype=int)),
