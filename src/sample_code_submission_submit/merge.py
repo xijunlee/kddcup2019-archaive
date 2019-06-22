@@ -7,7 +7,6 @@ import pandas as pd
 
 import CONSTANT
 from util import Config, Timer, log, timeit
-import pdb
 
 NUM_OP = [np.std, np.mean]
 
@@ -43,20 +42,27 @@ def join(u, v, v_name, key, type_):
 def temporal_join(u, v, v_name, key, time_col):
     timer = Timer()
 
+    window_size = CONSTANT.WINDOW_SIZE if len(u) * CONSTANT.WINDOW_RATIO < CONSTANT.WINDOW_SIZE \
+        else int(len(u) * CONSTANT.WINDOW_RATIO)
+    hash_max = CONSTANT.HASH_MAX if len(u) / CONSTANT.HASH_MAX > CONSTANT.HASH_BIN \
+        else int(len(u) / CONSTANT.HASH_BIN)
+
+    # window_size = CONSTANT.WINDOW_SIZE
+    # hash_max = CONSTANT.HASH_MAX
+
     if isinstance(key, list):
         assert len(key) == 1
         key = key[0]
 
-    # 取出时间feature和u,v的共同feature
     tmp_u = u[[time_col, key]]
     timer.check("select")
 
     tmp_u = pd.concat([tmp_u, v], keys=['u', 'v'], sort=False)
     timer.check("concat")
 
-    rehash_key = f'rehash_{key}'
-    tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x) % CONSTANT.HASH_MAX)
-    timer.check("rehash_key")
+    # rehash_key = f'rehash_{key}'
+    # tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x) % hash_max)
+    # timer.check("rehash_key")
 
     tmp_u.sort_values(time_col, inplace=True)
     timer.check("sort")
@@ -65,12 +71,13 @@ def temporal_join(u, v, v_name, key, time_col):
                  and not col.startswith(CONSTANT.TIME_PREFIX)
                  and not col.startswith(CONSTANT.MULTI_CAT_PREFIX)}
 
-    # 以5为时间窗口，取该时间窗口的agg_funcs值
-    tmp_u = tmp_u.groupby(rehash_key).rolling(5).agg(agg_funcs)
+    # tmp_u = tmp_u.groupby(rehash_key).rolling(window=5).agg(agg_funcs)
+    tmp_u = tmp_u.rolling(window=window_size).agg(agg_funcs)
+
     timer.check("group & rolling & agg")
 
-    tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
-    timer.check("reset_index")
+    # tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
+    # timer.check("reset_index")
 
     tmp_u.columns = tmp_u.columns.map(lambda a:
         f"{CONSTANT.NUMERICAL_PREFIX}{a[1].upper()}_ROLLING5({v_name}.{a[0]})")
@@ -130,7 +137,5 @@ def merge_table(tables, config):
             "key": rel['key'],
             "type": '_'.join(rel['type'].split('_')[::-1])
         })
-    # BFS函数通过BFS的方式将关系图graph构造成关系树，为每一个节点增加了depth特征
     bfs(CONSTANT.MAIN_TABLE_NAME, graph, config['tables'])
-    # DFS函数从关系树的叶子节点开始，进行表之间的join
     return dfs(CONSTANT.MAIN_TABLE_NAME, config, tables, graph)

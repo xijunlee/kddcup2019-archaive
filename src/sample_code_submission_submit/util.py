@@ -2,6 +2,7 @@ import os
 import pickle
 import time
 from typing import Any
+import pandas as pd
 
 import CONSTANT
 
@@ -81,9 +82,12 @@ class Config:
             return x.nunique()
 
         my_nunique.__name__ = 'nunique'
+        # numerical类型的数据，aggregation操作为mean 和 sum
+        # category类型的数据，aggregation操作只是count
         ops = {
-            CONSTANT.NUMERICAL_TYPE: ["mean", "sum"],
-            CONSTANT.CATEGORY_TYPE: ["count"],
+            CONSTANT.NUMERICAL_TYPE: ["mean", "sum", "std", "median", "min", "max"],
+            # CONSTANT.CATEGORY_TYPE: ["count"],
+            CONSTANT.CATEGORY_TYPE: [pd.Series.nunique],
             #  TIME_TYPE: ["max"],
             #  MULTI_CAT_TYPE: [my_unique]
         }
