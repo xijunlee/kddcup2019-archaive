@@ -82,7 +82,7 @@ SAMPLE_UP_OR_DOWN = "down"
 BAYESIAN_OPT = False
 
 # Drop outliers from the training set
-DROP_OUTLIER = True
+DROP_OUTLIER = False
 
 # Use double validation sets
 DOUBLE_VAL = False
@@ -99,7 +99,7 @@ HPO_EVALS = 10
 AUTO = True
 STACKING = False
 STACKING_METHOD = 1  # 0: lr; 1: lgb
-STOCHASTIC_CV = False
+STOCHASTIC_CV = True
 TRAIN_DATA_SIZE = 30000
 
 
@@ -118,7 +118,7 @@ train_lgb_params = {
 '''
 All kinds of seed
 '''
-SEED = 3
+SEED = 1
 HYPEROPT_SEED = SEED
 DOWNSAMPLING_SEED = SEED
 DATA_BALANCE_SEED = SEED

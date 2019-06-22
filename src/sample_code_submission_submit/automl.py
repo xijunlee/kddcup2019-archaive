@@ -20,7 +20,8 @@ from CONSTANT import (ENSEMBLE,
                       TRAIN_DATA_SIZE,
                       TIME_PREFIX,
                       TABLE_PREFIX,
-                      DOUBLE_VAL)
+                      DOUBLE_VAL,
+                      SEED)
 from preprocess import clean_df
 from util import Config, log, timeit
 
@@ -48,14 +49,13 @@ def lgb_f1_score(preds, data):
     preds = np.round(preds)
     return 'f1', f1_score(y_true, preds), True
 
-
 @timeit
 def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
     params = {
         "objective": "binary",
         "metric": "auc",  # binary_logloss, auc
         "verbosity": -1,
-        "seed": 1,
+        "seed": SEED,
         "num_threads": 4,
         # "is_unbalance": True,
         # "scale_pos_weight": 2,
@@ -73,7 +73,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
 
             # cross validation
             data = lgb.Dataset(X, label=y, free_raw_data=False)
-            data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
+            data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED).split(X, y)
             train_data_li = []
             valid_date_li = []
             valid_indices_li = []
@@ -104,7 +104,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
             if STACKING_METHOD == 0:
                 class_weight = {1: 1 - np.sum(y) / len(y), 0: np.sum(y) / len(y)}
                 config["stacker_model"] = LogisticRegression(class_weight=class_weight, n_jobs=4,
-                                                             max_iter=500, random_state=1).fit(ys, y)
+                                                             max_iter=500, random_state=SEED).fit(ys, y)
             else:
                 ys_train, ys_val, y_train, y_val = data_split(ys, y, 0.1)
                 train_data = lgb.Dataset(ys_train, label=y_train, free_raw_data=False)
@@ -193,18 +193,23 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
     # cross validation
     if STOCHASTIC_CV:
         data_all = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
-        # data_gen = StratifiedKFold(n_splits=50, shuffle=True, random_state=1).split(X, y)
+        # data_gen = StratifiedKFold(n_splits=50, shuffle=True, random_state=SEED).split(X, y)
 
         # validate_set_num = int(np.ceil(TRAIN_DATA_SIZE / 5 / (len(y) / 50)))
     else:
-        data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
+        # if DOUBLE_VAL:
+        #     X, X_val_double, y, y_val_double = data_split(X, y, 0.1)
+        # data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
+        # if DOUBLE_VAL:
+        #     data_val_double = lgb.Dataset(X_val_double, label=y_val_double, free_raw_data=free_raw_data)
+        data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED).split(X, y)
 
         train_data_li = []
-        valid_date_li = []
+        valid_data_li = []
         valid_indices_li = []
         for train_indices, valid_indices in data_gen:
             train_data_li.append(data.subset(train_indices))
-            valid_date_li.append(data.subset(valid_indices))
+            valid_data_li.append(data.subset(valid_indices))
             valid_indices_li.append(valid_indices)
         data_indices = np.concatenate(valid_indices_li)
 
@@ -215,16 +220,16 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=None)
             X_train, X_val, y_train, y_val = data_split(X_, y_, test_size=0.2, random_state=None)
             train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=True)
-            valid_date = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
+            valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
             model = lgb.train({**params, **hyperparams}, train_data, 300,
-                              valid_date, early_stopping_rounds=30, verbose_eval=0,
+                              valid_data, early_stopping_rounds=30, verbose_eval=0,
                               # feval=lgb_f1_score
                               )
             model_li.append(model)
         else:
             for j in range(len(train_data_li)):
                 model = lgb.train({**params, **hyperparams}, train_data_li[j], 300,
-                                  valid_date_li[j], early_stopping_rounds=30, verbose_eval=0,
+                                  valid_data_li[j], early_stopping_rounds=30, verbose_eval=0,
                                   # feval=lgb_f1_score
                                   )
                 model_li.append(model)
@@ -233,6 +238,11 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         # in classification, less is better
         result_dict = {'loss': -score, 'status': STATUS_OK}
+
+        # if DOUBLE_VAL:
+        #     a = model.eval(data_val_double, name='double_val')
+        #     result_dict['double_val_loss'] = np.mean([model.eval(data_val_double.data, name='double_val')
+        #                                               for model in model_li])
 
         if ENSEMBLE:
             # save the model
@@ -249,8 +259,8 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
                     result_dict['predicts'] = np.mean(model_li[0].predict(data_all.data), axis=0)
             else:
                 result_dict['predicts'] = np.zeros(data.num_data())
-                result_dict['predicts'][data_indices] = np.concatenate([model_li[j].predict(valid_date_li[j].data)
-                                                                        for j in range(len(valid_date_li))])
+                result_dict['predicts'][data_indices] = np.concatenate([model_li[j].predict(valid_data_li[j].data)
+                                                                        for j in range(len(valid_data_li))])
 
             if ENSEMBLE_OBJ == 3:
                 # num of weak sub-models
@@ -264,7 +274,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             "num_leaves": 50,
             "feature_fraction": 0.8,
             "bagging_fraction": 0.8,
-            "learning_rate": 0.1,
+            "learning_rate": 0.1
         })
         cv_results = lgb.cv({**params}, data, 500, nfold=5, metrics="auc", early_stopping_rounds=30, verbose_eval=0)
         params["num_boost_round"] = len(cv_results["auc-mean"])
@@ -299,6 +309,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             "reg_alpha": hp.uniform("reg_alpha", 0, 1),
             "reg_lambda": hp.uniform("reg_lambda", 0, 1),
             "boosting_type": hp.choice("boosting_type", ["gbdt", "rf"]),
+            # "num_boost_round": hp.choice("num_boost_round", range(50, 500, 50)),
             # "learning_rate": hp.loguniform("learning_rate", np.log(0.01), np.log(0.5)),
             # "max_depth": hp.choice("max_depth", [-1, 2, 3, 4, 5, 6]),
             # "num_leaves": hp.choice("num_leaves", np.linspace(10, 200, 50, dtype=int)),
@@ -331,7 +342,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
                                                           {key: value[0] for key, value
                                                            in trial['misc']['vals'].items()})}})
         params.update(space_eval(space, best))
-        print("beat_params: ", params)
+        print("best_params: ", params)
     else:
         params.update({
             "max_depth": 6,
@@ -479,18 +490,27 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         return hyperparams_li
     else:
+        # if DOUBLE_VAL:
+        #     min_double_val_loss = 0
+        #     hyperparams = None
+        #     for trial in trial_li:
+        #         if trial['result']['double_val_loss'] < min_double_val_loss:
+        #             hyperparams = trial['hyperparams']
+        #             min_double_val_loss = trial['result']['double_val_loss']
+        # else:
+        #     hyperparams = space_eval(space, best)
         hyperparams = space_eval(space, best)
         log(f"auc = {-trials.best_trial['result']['loss']:0.4f} {hyperparams}")
         return hyperparams
 
 
 
-def data_split(X: pd.DataFrame, y: pd.Series, test_size: float=0.2, random_state=1):
+def data_split(X: pd.DataFrame, y: pd.Series, test_size: float=0.2, random_state=SEED):
     #  -> (pd.DataFrame, pd.Series, pd.DataFrame, pd.Series):
     return train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=y)
 
 
-def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int = 5000, method: int = 2, random_state=1):
+def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int = 5000, method: int = 2, random_state=SEED):
     # -> (pd.DataFrame, pd.Series):
     if len(X) > nrows:
         if method == 0:

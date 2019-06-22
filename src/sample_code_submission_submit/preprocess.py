@@ -19,6 +19,20 @@ from sklearn.ensemble import IsolationForest
 from multiprocessing import Pool
 import time
 import os
+import re
+
+def test_data_feature_selection(X_test, train_selected_feature):
+
+    set_test_feature = set(X_test.columns)
+    set_train_feature = set(train_selected_feature)
+    set_diff_feature = set_train_feature - set_test_feature
+    for col in set_diff_feature:
+        pattern = re.compile(r"c_(.*)_DUMMY\((.*)\)")
+        m = pattern.match(col)
+        feat_name = m.group(1)
+        cat_name = m.group(2)
+        f = lambda x: 1 if x == cat_name else 0
+        X_test[col] = X_test[feat_name].map(f).rename(col)
 
 class MissingValueProcessor:
     def __init__(self):
@@ -52,21 +66,31 @@ class MissingValueProcessor:
         pass
 
 class CATEncoder:
-    def __init__(self):
-        pass
+    def __init__(self, max_cat_num=10, cum_ratio_thr=0.5):
+        self.max_cat_num = max_cat_num
+        self.cum_ratio_thr = cum_ratio_thr
 
     def fit_transform(self, col):
-        val_freq = col.value_counts(normalize=True).to_dict()
-        col = col.map(val_freq)
-        col.name = f"n_FREQ({col.name})"
-        col = col.astype('float')
-        return col
 
-    def factorize(self, col):
-        ret, _ = pd.factorize(col)
-        col_name = col.name
-        del col
-        return pd.Series(ret, dtype="category", name=col_name)
+        # ret, _ = pd.factorize(col)
+        # ret_fact = pd.Series(ret, dtype="category", name=col.name)
+        ret_fact = col.astype("category")
+        cat_count = ret_fact.value_counts().to_dict()
+        val_freq = ret_fact.value_counts(normalize=True).to_dict()
+        ret_freq = ret_fact.map(val_freq).rename(f"n_FREQ({col.name})").astype('float')
+
+        n = min(self.max_cat_num, len(cat_count)-1)
+
+        cat_list = list(cat_count.keys())[:n+1]
+        f = lambda x: x if x in cat_list[:n] else cat_list[n]
+        dummy_col = ret_fact.map(f)
+
+        name_map = lambda x: f"c_{col.name}_DUMMY({x})"
+        dummy_cols = pd.get_dummies(dummy_col).rename(name_map, axis=1)
+        # ret_cat = pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
+        ret_cat = pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
+
+        return ret_cat
 
 def seperate(x):
     try:
@@ -197,7 +221,6 @@ def clean_tables(tables):
 def clean_df(df):
     # return fillna_rewrite(df)
     fillna_rewrite_seq(df)
-    return df
 
 @timeit
 def fillna_rewrite_seq(df):
@@ -233,7 +256,7 @@ def fillna_rewrite_seq(df):
 
 
     for col in mul_feature_list:
-        df[col].fillna("0", inplace=True)
+        df[col].fillna("-1", inplace=True)
 
     for col in time_feature_list:
         df[col].fillna(datetime.datetime(1970, 1, 1), inplace=True)
@@ -334,9 +357,6 @@ def feature_engineer_rewrite_seq(df, config):
 @timeit
 def feature_engineer_rewrite(df, config):
 
-    # cat_param = CONSTANT.cat_hash_params["cat"]
-    # multi_cat_param = CONSTANT.cat_hash_params["multi_cat"]
-
     df.reset_index(inplace=True, drop=True)
     print(f"length of data: {len(df)}")
 
@@ -345,29 +365,23 @@ def feature_engineer_rewrite(df, config):
     mul_feature_list = [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]
     # time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
 
+    feat_list = []
+
     # process category feature
     st_time = time.time()
     catEncoder = CATEncoder()
-
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        cat_list = pool.map(catEncoder.fit_transform, [df[col] for col in cat_feature_list])
+        feat_list += pool.map(catEncoder.fit_transform, [df[col] for col in cat_feature_list])
         pool.close()
         pool.join()
     ed_time = time.time()
     print(f"duration of catEncoder.fit_transform: {ed_time-st_time}")
 
-    st_time = time.time()
-    with Pool(processes=CONSTANT.N_THREAD) as pool:
-        cat_raw_list = pool.map(catEncoder.factorize, [df[col] for col in cat_feature_list])
-        pool.close()
-        pool.join()
-    ed_time = time.time()
-    print(f"duration of catEncoder.factorize: {ed_time-st_time}")
     # process multi value feature
     st_time = time.time()
     mveEncoder = MVEncoder()
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        mul_list = pool.map(mveEncoder.fit_transform, [df[col] for col in mul_feature_list])
+        feat_list += pool.map(mveEncoder.fit_transform, [df[col] for col in mul_feature_list])
         pool.close()
         pool.join()
     ed_time = time.time()
@@ -387,23 +401,21 @@ def feature_engineer_rewrite(df, config):
                 pool.join()
             ed_time = time.time()
             print(f"duration of numGenerator.{func}: {ed_time-st_time}")
-    num_list = []
     for order_feature in order_feature_list:
-        num_list += order_feature
+        feat_list += order_feature
 
     timeGenerator = TIMEGenrator()
     funcs, time_list = CONSTANT.time_primitives, []
     for func in funcs:
         st_time = time.time()
         cmd = "timeGenerator." + func + "(df[config[\"time_col\"]])"
-        time_list += [eval(cmd)]
+        feat_list += [eval(cmd)]
         ed_time = time.time()
         print(f"duration of timeGenerator.{func}: {ed_time-st_time}")
 
-    ret = pd.concat(cat_list + cat_raw_list + num_list + time_list, axis=1)
+    # ret = pd.concat(cat_list + num_list + time_list, axis=1)
 
-    del cat_list, cat_raw_list, num_list, time_list, order_feature_list
-    return ret
+    return pd.concat(feat_list, axis=1)
 
 
 @timeit
@@ -553,7 +565,6 @@ def data_downsampling(X, y, config, seed=CONSTANT.DOWNSAMPLING_SEED):
     # return df_sampled.drop(columns=["class"]), df_sampled["class"]
     df_sampled = pd.concat([df_sampled_0, df_sampled_1], axis=0)
 
-    del X, y, df_sampled_1, df_sampled_0
     return df_sampled.drop(columns=["class"]), df_sampled["class"]
 
 @timeit
@@ -640,12 +651,14 @@ def feature_selection(X_raw, y_raw, config, n_selected_ratio, seed=CONSTANT.FEAT
     feature_name = X_raw.columns.tolist()
     len_X_01 = int(len(X_raw) * 0.1)
     len_feature = len(feature_name)
-    n_selected_feature = len_X_01 if len_X_01 <= len_feature else int(n_selected_ratio * len(feature_name))
+    # n_selected_feature = len_X_01 if len_X_01 >= len_feature else int(n_selected_ratio * len(feature_name))
+    n_selected_feature = int(n_selected_ratio * len(feature_name))
+
 
     # if CONSTANT.DATA_BALANCE_SWITCH:
     #     X, y = data_balance(X_raw, y_raw, config)
-    # if CONSTANT.DATA_DOWNSAMPLING_SWITCH:
-    #     X, y = data_downsampling(X_raw, y_raw, config)
+    if CONSTANT.DATA_DOWNSAMPLING_SWITCH:
+        X, y = data_downsampling(X_raw, y_raw, config)
     X, y = X_raw, y_raw
     selected_features = []
 
