@@ -40,8 +40,8 @@ def join(u, v, v_name, key, type_):
 
 @timeit
 def temporal_join(u, v, v_name, key, time_col):
-    timer = Timer()
 
+    timer = Timer()
     window_size = CONSTANT.WINDOW_SIZE if len(u) * CONSTANT.WINDOW_RATIO < CONSTANT.WINDOW_SIZE \
         else int(len(u) * CONSTANT.WINDOW_RATIO)
     hash_max = CONSTANT.HASH_MAX if len(u) / CONSTANT.HASH_MAX > CONSTANT.HASH_BIN \
@@ -61,7 +61,7 @@ def temporal_join(u, v, v_name, key, time_col):
     timer.check("concat")
 
     rehash_key = f'rehash_{key}'
-    tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x))
+    tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x) % hash_max)
     timer.check("rehash_key")
 
     tmp_u.sort_values(time_col, inplace=True)
@@ -76,8 +76,8 @@ def temporal_join(u, v, v_name, key, time_col):
 
     timer.check("group & rolling & agg")
 
-    # tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
-    # timer.check("reset_index")
+    tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
+    timer.check("reset_index")
 
     tmp_u.columns = tmp_u.columns.map(lambda a:
         f"{CONSTANT.NUMERICAL_PREFIX}{a[1].upper()}_ROLLING5({v_name}.{a[0]})")
@@ -89,7 +89,6 @@ def temporal_join(u, v, v_name, key, time_col):
     ret = pd.concat([u, tmp_u.loc['u']], axis=1, sort=False)
     timer.check("final concat")
 
-    del tmp_u
 
     return ret
 
