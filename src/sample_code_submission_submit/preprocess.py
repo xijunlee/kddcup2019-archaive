@@ -71,9 +71,9 @@ class CATEncoder:
 
     def fit_transform(self, col):
 
-        # ret, _ = pd.factorize(col)
-        # ret_fact = pd.Series(ret, dtype="category", name=col.name)
-        ret_fact = col.astype("category")
+        ret, _ = pd.factorize(col)
+        ret_fact = pd.Series(ret, dtype="category", name=col.name)
+        # ret_fact = col.astype("category")
         cat_count = ret_fact.value_counts().to_dict()
         val_freq = ret_fact.value_counts(normalize=True).to_dict()
         ret_freq = ret_fact.map(val_freq).rename(f"n_FREQ({col.name})").astype('float')
@@ -377,14 +377,14 @@ def feature_engineer_rewrite(df, config):
     print(f"duration of catEncoder.fit_transform: {ed_time-st_time}")
 
     # process multi value feature
-    st_time = time.time()
-    mveEncoder = MVEncoder()
-    with Pool(processes=CONSTANT.N_THREAD) as pool:
-        feat_list += pool.map(mveEncoder.fit_transform, [df[col] for col in mul_feature_list])
-        pool.close()
-        pool.join()
-    ed_time = time.time()
-    print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+    # st_time = time.time()
+    # mveEncoder = MVEncoder()
+    # with Pool(processes=CONSTANT.N_THREAD) as pool:
+    #     feat_list += pool.map(mveEncoder.fit_transform, [df[col] for col in mul_feature_list])
+    #     pool.close()
+    #     pool.join()
+    # ed_time = time.time()
+    # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
 
     # process number feature
     numGenerator = NUMGenerator()
