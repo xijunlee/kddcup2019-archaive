@@ -87,10 +87,10 @@ class Model:
         print('', flush=True)
 
         if FEATURE_SELECTION_SWITCH:
-            _, self.selected_features_0 = feature_selection(X.drop(columns=self.time_feature_list+self.mul_feature_list+self.num_feature_list)
+            _, self.selected_features_0 = feature_selection(X.drop(columns=self.time_feature_list+self.mul_feature_list)
                                                             , y, self.config, 0.8)
             time_manager.check("first feature selection")
-        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list + self.num_feature_list
+        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list
 
         X = feature_engineer_rewrite(X.filter(selected_features), self.config)
         time_manager.check("feature engineering")
@@ -128,7 +128,7 @@ class Model:
         time_manager.check("clean data before learning")
         print('', flush=True)
 
-        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list + self.num_feature_list
+        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list
         X = feature_engineer_rewrite(X.filter(selected_features), self.config)
         time_manager.check("feature engineering")
         print('', flush=True)

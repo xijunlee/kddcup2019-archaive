@@ -63,7 +63,7 @@ class MissingValueProcessor:
         pass
 
 class CATEncoder:
-    def __init__(self, max_cat_num=12, cum_ratio_thr=0.5):
+    def __init__(self, max_cat_num=5, cum_ratio_thr=0.5):
         self.max_cat_num = max_cat_num
         self.cum_ratio_thr = cum_ratio_thr
 
