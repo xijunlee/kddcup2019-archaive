@@ -17,6 +17,7 @@ from sklearn.ensemble import IsolationForest
 from multiprocessing import Pool
 import time
 import re
+# import shap
 
 def test_data_feature_selection(X_test, train_selected_feature):
 
@@ -63,7 +64,7 @@ class MissingValueProcessor:
         pass
 
 class CATEncoder:
-    def __init__(self, max_cat_num=5, cum_ratio_thr=0.5):
+    def __init__(self, max_cat_num=10, cum_ratio_thr=0.5):
         self.max_cat_num = max_cat_num
         self.cum_ratio_thr = cum_ratio_thr
 
@@ -74,19 +75,19 @@ class CATEncoder:
         val_freq = ret_fact.value_counts(normalize=True).to_dict()
         ret_freq = ret_fact.map(val_freq).rename(f"n_FREQ({col.name})").astype("float")
 
-        # cat_count = ret_fact.value_counts().to_dict()
-        # n = min(self.max_cat_num, len(cat_count)-1)
-        #
-        # cat_list = list(cat_count.keys())[:n+1]
-        # f = lambda x: x if x in cat_list[:n] else cat_list[n]
-        # dummy_col = ret_fact.map(f)
-        #
-        # name_map = lambda x: f"c_{col.name}_DUMMY({x})"
-        # dummy_cols = pd.get_dummies(dummy_col).rename(name_map, axis=1)
-        #
-        # return pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
+        cat_count = ret_fact.value_counts().to_dict()
+        n = min(self.max_cat_num, len(cat_count)-1)
 
-        return pd.concat([ret_fact, ret_freq], axis=1)
+        cat_list = list(cat_count.keys())[:n+1]
+        f = lambda x: x if x in cat_list[:n] else cat_list[n]
+        dummy_col = ret_fact.map(f)
+
+        name_map = lambda x: f"c_{col.name}_DUMMY({x})"
+        dummy_cols = pd.get_dummies(dummy_col).rename(name_map, axis=1)
+
+        return pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
+
+        # return pd.concat([ret_fact, ret_freq], axis=1)
 
 def seperate(x):
     try:
@@ -138,7 +139,7 @@ class MVEncoder:
         return col_encode
 
     def fit_transform_simple(self, col):
-        return col.map(seperate_count)
+        return col.map(seperate_count).astype("category").rename(f"c_MVCOUNT({col.name})")
 
 class NUMGenerator:
     def __init__(self):
@@ -548,10 +549,11 @@ def _shap_feature_selection(X_raw, y_raw, config, n_selected_features, seed=None
     train_x, valid_x, train_y, valid_y = train_test_split(X_raw, y_raw, test_size=0.2, shuffle=True, stratify=y_raw,
                                                           random_state=seed)
     train_features = X_raw.columns
+    categorical_feats = [c for c in X_raw if c.startswith(CONSTANT.CATEGORY_PREFIX)]
     lgb_params = CONSTANT.pre_lgb_params
     lgb_params["seed"] = seed
-    dtrain = lgb.Dataset(train_x, train_y, free_raw_data=False, silent=True)
-    dvalid = lgb.Dataset(valid_x, valid_y, free_raw_data=False, silent=True)
+    dtrain = lgb.Dataset(train_x, train_y, free_raw_data=False, silent=True, categorical_feature=categorical_feats)
+    dvalid = lgb.Dataset(valid_x, valid_y, free_raw_data=False, silent=True, categorical_feature=categorical_feats)
     lgbm = lgb.train(lgb_params,
                      dtrain,
                      2500,
@@ -588,15 +590,17 @@ def _imp_feature_selection(X_raw, y_raw, config, n_selected_features, seed=None)
     X, y = X_raw, y_raw
 
     train_features = X.columns.values
+    categorical_feats = [c for c in X if c.startswith(CONSTANT.CATEGORY_PREFIX)]
     # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
-    dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True)
+    dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True, categorical_feature=categorical_feats)
     lgb_params = CONSTANT.pre_lgb_params
     lgb_params["seed"] = seed
     lgb_params["colsample_bytree"] = np.sqrt(len(train_features)) / len(train_features)
     # Fit the model
-    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
+    # clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
+
     # if there still exist categorical features
-    #clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200, categorical_feature=categorical_feats)
+    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
 
     # Get feature importances
     imp_df = pd.DataFrame()

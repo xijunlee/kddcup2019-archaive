@@ -21,7 +21,8 @@ from CONSTANT import (ENSEMBLE,
                       TIME_PREFIX,
                       TABLE_PREFIX,
                       DOUBLE_VAL,
-                      SEED)
+                      SEED,
+                      CATEGORY_PREFIX)
 from preprocess import clean_df
 from util import Config, log, timeit
 
@@ -56,11 +57,11 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
         "metric": "auc",  # binary_logloss, auc
         "verbosity": -1,
         "seed": SEED,
-        "num_threads": 4,
+        "num_threads": 4
+        # "categorical_feature": [c for c in X if c.startswith(CATEGORY_PREFIX)]
         # "is_unbalance": True,
         # "scale_pos_weight": 2,
     }
-
     if ENSEMBLE:
         hyperparams_li = hyperopt_lightgbm(X, y, params, config)
         # hyperparams_li = smac_lightgbm(X, y, params, config)
@@ -72,7 +73,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
             # valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=False)
 
             # cross validation
-            data = lgb.Dataset(X, label=y, free_raw_data=False)
+            data = lgb.Dataset(X, label=y, free_raw_data=False, categorical_feature=[c for c in X if c.startswith(CATEGORY_PREFIX)])
             data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED).split(X, y)
             train_data_li = []
             valid_date_li = []
