@@ -107,33 +107,44 @@ class Model:
     @timeit
     def predict(self, X_test, time_remain):
 
+        time_manager = TimeManager(self.config, time_remain)
         print(f"prediction remaining time: {time_remain}")
         print('', flush=True)
         Xs = self.tables
         main_table, len_X_train = Xs[MAIN_TABLE_NAME], len(Xs[MAIN_TABLE_NAME])
         main_table = pd.concat([main_table, X_test], keys=['train', 'test'], sort=True)
+        time_manager.check("concat X_train and X_test")
         main_table.index = main_table.index.map(lambda x: f"{x[0]}_{x[1]}")
         Xs[MAIN_TABLE_NAME] = main_table
 
         # Xs[MAIN_TABLE_NAME] = clean_df(Xs[MAIN_TABLE_NAME])
         clean_df(Xs[MAIN_TABLE_NAME])
+        time_manager.check("clean main table")
+
         X = merge_table(Xs, self.config)
+        time_manager.check("merge table")
+
         clean_df(X)
+        time_manager.check("clean data before learning")
         print('', flush=True)
 
         selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list + self.num_feature_list
         X = feature_engineer_rewrite(X.filter(selected_features), self.config)
+        time_manager.check("feature engineering")
         print('', flush=True)
 
         # X = X[X.index.str.startswith("test")]
         X = X.iloc[len_X_train:,]
         X.sort_index(inplace=True)
+        time_manager.check("X sorting")
         if FEATURE_SELECTION_SWITCH:
             test_data_feature_selection(X, self.selected_features_1)
             X = X[self.selected_features_1]
+            time_manager.check("test data feature selection")
 
         print('', flush=True)
         result = predict(X, self.config)
+        time_manager.check("prediction")
         print('', flush=True)
 
         return pd.Series(result)
