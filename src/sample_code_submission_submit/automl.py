@@ -280,23 +280,23 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         # params["num_boost_round"] = 2 * len(cv_results["auc-mean"])
         # print("best_cv_score: ", cv_results["auc-mean"][-1])
 
-        ratio = np.sum(y < 0.5) / np.sum(y > 0.5)
-        if ratio > 10 or ratio < 0.1:
-            scale_pos_weight_sapce = 1 / np.linspace(1, 1 / ratio / 2, 10) if ratio < 1 \
-                else np.linspace(1, ratio / 2, 10)
-            best_loss = 0
-            second_loss = 0
-            scale_pos_weight = 1
-            for value in scale_pos_weight_sapce:
-                result = objective({"scale_pos_weight": value})
-                if result['loss'] < best_loss:
-                    scale_pos_weight = value
-                    second_loss = best_loss
-                    best_loss = result['loss']
-                elif result['loss'] > second_loss:
-                    break
-            params.update({"scale_pos_weight": scale_pos_weight})
-            print("best_params: ", params)
+        # ratio = np.sum(y < 0.5) / np.sum(y > 0.5)
+        # if ratio > 10 or ratio < 0.1:
+        #     scale_pos_weight_sapce = 1 / np.linspace(1, 1 / ratio / 2, 10) if ratio < 1 \
+        #         else np.linspace(1, ratio / 2, 10)
+        #     best_loss = 0
+        #     second_loss = 0
+        #     scale_pos_weight = 1
+        #     for value in scale_pos_weight_sapce:
+        #         result = objective({"scale_pos_weight": value})
+        #         if result['loss'] < best_loss:
+        #             scale_pos_weight = value
+        #             second_loss = best_loss
+        #             best_loss = result['loss']
+        #         elif result['loss'] > second_loss:
+        #             break
+        #     params.update({"scale_pos_weight": scale_pos_weight})
+        #     print("best_params: ", params)
 
         trial_li = []
 
