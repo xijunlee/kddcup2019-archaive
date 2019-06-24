@@ -88,7 +88,7 @@ class Model:
 
         if FEATURE_SELECTION_SWITCH:
             _, self.selected_features_0 = feature_selection(X.drop(columns=self.time_feature_list+self.mul_feature_list+self.num_feature_list)
-                                                            , y, self.config, 0.6)
+                                                            , y, self.config, 0.8)
             time_manager.check("first feature selection")
         selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list + self.num_feature_list
 
@@ -96,7 +96,7 @@ class Model:
         time_manager.check("feature engineering")
 
         if FEATURE_SELECTION_SWITCH:
-            X, self.selected_features_1 = feature_selection(X, y, self.config, 0.6)
+            X, self.selected_features_1 = feature_selection(X, y, self.config, 0.8)
             time_manager.check("second feature selection")
         print('', flush=True)
 
