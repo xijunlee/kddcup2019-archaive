@@ -40,8 +40,8 @@ def join(u, v, v_name, key, type_):
 
 @timeit
 def temporal_join(u, v, v_name, key, time_col):
-    timer = Timer()
 
+    timer = Timer()
     window_size = CONSTANT.WINDOW_SIZE if len(u) * CONSTANT.WINDOW_RATIO < CONSTANT.WINDOW_SIZE \
         else int(len(u) * CONSTANT.WINDOW_RATIO)
     hash_max = CONSTANT.HASH_MAX if len(u) / CONSTANT.HASH_MAX > CONSTANT.HASH_BIN \
@@ -89,7 +89,6 @@ def temporal_join(u, v, v_name, key, time_col):
     ret = pd.concat([u, tmp_u.loc['u']], axis=1, sort=False)
     timer.check("final concat")
 
-    del tmp_u
 
     return ret
 

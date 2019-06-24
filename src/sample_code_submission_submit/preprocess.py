@@ -2,23 +2,20 @@ import datetime
 import CONSTANT
 from util import log, timeit
 import numpy as np
-from sklearn.decomposition import PCA
-from sklearn.utils import resample
+from sklearn.utils import resample, shuffle
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+from sklearn.preprocessing import MinMaxScaler
 import lightgbm as lgb
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import KFold, train_test_split
+from sklearn.model_selection import train_test_split
 import random
 from sklearn.feature_selection import SelectFromModel
 from lightgbm import LGBMClassifier
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
 from sklearn.ensemble import IsolationForest
-# import shap
 from multiprocessing import Pool
 import time
-import os
 import re
 
 def test_data_feature_selection(X_test, train_selected_feature):
@@ -66,31 +63,30 @@ class MissingValueProcessor:
         pass
 
 class CATEncoder:
-    def __init__(self, max_cat_num=10, cum_ratio_thr=0.5):
+    def __init__(self, max_cat_num=12, cum_ratio_thr=0.5):
         self.max_cat_num = max_cat_num
         self.cum_ratio_thr = cum_ratio_thr
 
     def fit_transform(self, col):
 
-        # ret, _ = pd.factorize(col)
-        # ret_fact = pd.Series(ret, dtype="category", name=col.name)
-        ret_fact = col.astype("category")
-        cat_count = ret_fact.value_counts().to_dict()
+        ret, _ = pd.factorize(col)
+        ret_fact = pd.Series(ret, dtype="category", name=col.name)
         val_freq = ret_fact.value_counts(normalize=True).to_dict()
-        ret_freq = ret_fact.map(val_freq).rename(f"n_FREQ({col.name})").astype('float')
+        ret_freq = ret_fact.map(val_freq).rename(f"n_FREQ({col.name})").astype("float")
 
-        n = min(self.max_cat_num, len(cat_count)-1)
+        # cat_count = ret_fact.value_counts().to_dict()
+        # n = min(self.max_cat_num, len(cat_count)-1)
+        #
+        # cat_list = list(cat_count.keys())[:n+1]
+        # f = lambda x: x if x in cat_list[:n] else cat_list[n]
+        # dummy_col = ret_fact.map(f)
+        #
+        # name_map = lambda x: f"c_{col.name}_DUMMY({x})"
+        # dummy_cols = pd.get_dummies(dummy_col).rename(name_map, axis=1)
+        #
+        # return pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
 
-        cat_list = list(cat_count.keys())[:n+1]
-        f = lambda x: x if x in cat_list[:n] else cat_list[n]
-        dummy_col = ret_fact.map(f)
-
-        name_map = lambda x: f"c_{col.name}_DUMMY({x})"
-        dummy_cols = pd.get_dummies(dummy_col).rename(name_map, axis=1)
-        # ret_cat = pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
-        ret_cat = pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
-
-        return ret_cat
+        return pd.concat([ret_fact, ret_freq], axis=1)
 
 def seperate(x):
     try:
@@ -98,6 +94,13 @@ def seperate(x):
     except AttributeError:
         x = ('-1', )
     return x
+
+def seperate_count(x):
+    try:
+        x = tuple(x.split(','))
+    except AttributeError:
+        x = ('-1', )
+    return len(x)
 
 class MVEncoder:
 
@@ -107,7 +110,7 @@ class MVEncoder:
     def encode(self, cats):
         return min((self.mapping[c] for c in cats))
 
-    def fit_transform(self, col):
+    def fit_transform_complicate(self, col):
 
         col = col.map(seperate)
 
@@ -131,85 +134,55 @@ class MVEncoder:
         col_encode = col.map(self.encode)
         col_encode.name = f"c_MVCODE({col.name})"
         col_encode = col_encode.astype("category")
-        del col
 
         return col_encode
+
+    def fit_transform_simple(self, col):
+        return col.map(seperate_count)
 
 class NUMGenerator:
     def __init__(self):
         pass
 
     def cum_sum(self, col):
-        ret = col.cumsum()
-        ret.name = f"n_CUMSUM({col.name})"
-        del col
-        return ret
+        return col.cumsum().rename(f"n_CUMSUM({col.name})").astype("float")
 
     def cum_mean(self, col):
         num = np.array([i+1 for i in range(len(col))])
         ret = col.cumsum() / num
         ret.name = f"n_CUMMEAN({col.name})"
-        del col
         return ret
 
     def cum_max(self, col):
-        ret = col.cummax()
-        ret.name = f"n_CUMMAX({col.name})"
-        del col
-        return ret
+        return col.cummax().rename(f"n_CUMMAX({col.name})").astype("float")
 
     def cum_min(self, col):
-        ret = col.cummin()
-        ret.name = f"n_CUMMIN({col.name})"
-        del col
-        return ret
+        return col.cummin().rename(f"n_CUMMIN({col.name})").astype("float")
 
     def cum_prod(self, col):
-        ret = col.cumprod()
-        ret.name = f"n_CUMPROD({col.name})"
-        del col
-        return ret
+        return col.cumprod().rename(f"n_CUMPROD({col.name})").astype("float")
 
 class TIMEGenrator:
     def __init__(self):
         pass
 
     def year(self, col):
-        ret = col.dt.year
-        ret.name = f"n_YEAR({col.name})"
-        del col
-        return ret
+        return col.dt.year.rename(f"n_YEAR({col.name})")
 
     def month(self, col):
-        ret = col.dt.month
-        ret.name = f"n_MONTH({col.name})"
-        del col
-        return ret
+        return col.dt.month.rename(f"n_MONTH({col.name})")
 
     def day(self, col):
-        ret = col.dt.day
-        ret.name = f"n_DAY({col.name})"
-        del col
-        return ret
+        return col.dt.day.rename(f"n_DAY({col.name})")
 
     def hour(self, col):
-        ret = col.dt.hour
-        ret.name = f"n_HOUR({col.name})"
-        del col
-        return ret
+        return col.dt.hour.rename(f"n_HOUR({col.name})")
 
     def minute(self, col):
-        ret = col.dt.minute
-        ret.name = f"n_MINUTE({col.name})"
-        del col
-        return ret
+        return col.dt.minute.rename(f"n_MINUTE({col.name})")
 
     def second(self, col):
-        ret = col.dt.second
-        ret.name = f"n_SECOND({col.name})"
-        del col
-        return ret
-
+        return col.dt.second.rename(f"n_SECOND({col.name})")
 
 @timeit
 def clean_tables(tables):
@@ -339,22 +312,6 @@ def fillna(df):
         df[c].fillna("0", inplace=True)
 
 @timeit
-def feature_engineer_rewrite_seq(df, config):
-    df.reset_index(inplace=True, drop=True)
-    print(f"length of data: {len(df)}")
-
-    num_feature_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
-    cat_feature_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
-    mul_feature_list = [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]
-    time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
-
-    catEncoder = CATEncoder()
-    for col in cat_feature_list:
-        df = df.join(catEncoder.fit_transform(df[col]))
-        df = df.join(catEncoder.factorize(df[col]))
-    print(df)
-
-@timeit
 def feature_engineer_rewrite(df, config):
 
     df.reset_index(inplace=True, drop=True)
@@ -381,7 +338,7 @@ def feature_engineer_rewrite(df, config):
     st_time = time.time()
     mveEncoder = MVEncoder()
     with Pool(processes=CONSTANT.N_THREAD) as pool:
-        feat_list += pool.map(mveEncoder.fit_transform, [df[col] for col in mul_feature_list])
+        feat_list += pool.map(mveEncoder.fit_transform_simple, [df[col] for col in mul_feature_list])
         pool.close()
         pool.join()
     ed_time = time.time()
@@ -413,141 +370,7 @@ def feature_engineer_rewrite(df, config):
         ed_time = time.time()
         print(f"duration of timeGenerator.{func}: {ed_time-st_time}")
 
-    # ret = pd.concat(cat_list + num_list + time_list, axis=1)
-
     return pd.concat(feat_list, axis=1)
-
-
-@timeit
-def feature_engineer_ft(df, config):
-
-    es = ft.EntitySet(id='main')
-    es = es.entity_from_dataframe(entity_id='main',
-                                  dataframe=df,
-                                  index="index")
-    agg_primitives = CONSTANT.agg_primitives
-    trans_primitives = CONSTANT.trans_primitives
-
-    features, feature_names = ft.dfs(
-        entityset=es,
-        target_entity='main',
-        agg_primitives=agg_primitives,
-        trans_primitives=trans_primitives,
-        max_depth=1,
-        n_jobs=1,
-        verbose=True)
-
-    # process the categorical feature
-    features = transform_categorical_hash(features)
-    # replace year 1970 with the most frequently emerge year
-    for c in [c for c in features if c.startswith("YEAR")]:
-        mode = features[c].mode()[0]
-        features[c].replace(to_replace=1970, value=mode, inplace=True)
-
-
-    return features
-
-@timeit
-def feature_engineer_base(df, config):
-    df = transform_categorical_hash(df)
-    transform_datetime(df, config)
-    return df
-
-@timeit
-def transform_datetime(df, config):
-    for c in [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]:
-        df.drop(c, axis=1, inplace=True)
-    return df
-
-@timeit
-def transform_categorical_hash(df):
-
-    cat_param = CONSTANT.cat_hash_params["cat"]
-    multi_cat_param = CONSTANT.cat_hash_params["multi_cat"]
-
-    if cat_param["method"] == "fact":
-        # categorical encoding mechanism 1:
-        for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
-            df[c], _ = pd.factorize(df[c])
-            # Set feature type as categorical
-            df[c] = df[c].astype('category')
-
-    elif cat_param["method"] == "freq":
-        # categorical encoding mechanism 3:
-        for c in [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]:
-            # calculate the frequency of item
-            val_freq = df[c].value_counts(normalize=True).to_dict()
-            df[c] = df[c].map(val_freq)
-            df[c] = df[c].astype('float')
-    elif cat_param["method"] == "ohe":
-        # one hot encoding
-        pass
-
-    if multi_cat_param["method"] == 'base':
-        for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
-            df[c] = df[c].apply(lambda x: int(x.split(',')[0]))
-    elif multi_cat_param["method"] == 'count':
-        for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
-            df[c] = df[c].apply(lambda x: len(x.split(',')))
-    elif multi_cat_param["method"] == 'freq':
-        for c in [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]:
-            multi_cat_expand = df[c].astype(str).str.split(',', expand=True).stack() \
-                .reset_index(level=0).set_index('level_0').rename(columns={0: c})
-            val_freq = multi_cat_expand[c].value_counts(normalize=True).to_dict()
-            multi_cat_expand[c] = multi_cat_expand[c].map(val_freq)
-            multi_cat_expand[c] = multi_cat_expand[c].astype('float')
-            multi_cat_expand = multi_cat_expand.groupby('level_0').agg([sum, np.mean, np.std]).fillna(0)
-            multi_cat_expand.columns = multi_cat_expand.columns.map('|'.join).str.strip('|')
-            df.drop(columns=c, inplace=True)
-            df = pd.concat([df, multi_cat_expand], axis=1)
-
-    # TODO: multi value categorical feature -> ?
-    # x = df[c].str.split(r',', expand=True)\
-    #         .stack()\
-    #         .reset_index(level=1, drop=True)\
-    #         .to_frame(c)
-    # cleaned = df[c].str.split(r',', expand=True).stack()
-    # cleaned = pd.get_dummies(cleaned, prefix='c', columns=c).groupby(level=0).sum()
-    # df_r.drop(columns=c, inplace=True)
-    # df_r = pd.concat([df_r, cleaned], axis=1)
-
-    return df
-
-@timeit
-def data_reduction_train(df):
-    matrix = df.as_matrix()
-    min_max_scaler = MinMaxScaler()
-    matrix = min_max_scaler.fit_transform(matrix)
-    pca = PCA()
-    pca.fit(matrix)
-    sum_ratio, flag_idx = 0, None
-    # determine the reduced dimension
-    for i in range(pca.explained_variance_ratio_.size):
-        sum_ratio += pca.explained_variance_ratio_[i]
-        if sum_ratio >= CONSTANT.VARIANCE_RATIO:
-            flag_idx = i
-            break
-    if flag_idx:
-        pca = PCA(n_components=flag_idx)
-        matrix_trans = pca.fit_transform(matrix)
-        # reconstruct dataframe
-        d = {}
-        for i in range(matrix_trans.shape[1]):
-            d[f"f_{i}"] = matrix_trans[:,i]
-        ret_df = pd.DataFrame(d)
-        return ret_df, min_max_scaler, pca
-
-@timeit
-def data_reduction_test(df, scaler, pca):
-    matrix = df.as_matrix()
-    matrix = scaler.transform(matrix)
-    matrix_trans = pca.transform(matrix)
-    # reconstruct dataframe
-    d = {}
-    for i in range(matrix_trans.shape[1]):
-        d[f"f_{i}"] = matrix_trans[:, i]
-    ret_df = pd.DataFrame(d)
-    return ret_df
 
 @timeit
 def data_downsampling(X, y, config, seed=CONSTANT.DOWNSAMPLING_SEED):
@@ -654,12 +477,13 @@ def feature_selection(X_raw, y_raw, config, n_selected_ratio, seed=CONSTANT.FEAT
     # n_selected_feature = len_X_01 if len_X_01 >= len_feature else int(n_selected_ratio * len(feature_name))
     n_selected_feature = int(n_selected_ratio * len(feature_name))
 
-
     # if CONSTANT.DATA_BALANCE_SWITCH:
     #     X, y = data_balance(X_raw, y_raw, config)
     if CONSTANT.DATA_DOWNSAMPLING_SWITCH:
-        X, y = data_downsampling(X_raw, y_raw, config)
-    X, y = X_raw, y_raw
+        X, y = data_sample(X_raw, y_raw)
+    else:
+        X, y = X_raw, y_raw
+
     selected_features = []
 
     if method == "imp":
@@ -701,7 +525,6 @@ def _cor_feature_selection(X_raw, y_raw, config, n_selected_feature, seed=None):
     # feature selection? 0 for not select, 1 for select
     cor_support = [True if i in cor_feature else False for i in feature_name]
     return cor_feature
-
 
 @timeit
 def _sfm_feature_selection(X_raw, y_raw, config, seed=None):
@@ -891,3 +714,41 @@ def drop_outlier(df):
     clf.fit(df_without_time)
     label_df = clf.predict(df_without_time)
     return label_df
+
+@timeit
+def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int = 5000, method: int = 2, random_state=CONSTANT.SEED):
+    # -> (pd.DataFrame, pd.Series):
+    if len(X) > nrows:
+        if method == 0:
+            X_sample = X.sample(nrows, random_state=random_state)
+            y_sample = y[X_sample.index]
+        elif method == 1:
+            # for unbalanced data - take care of imbalance
+            X_sample = X.assign(label=y)
+            rate = pd.DataFrame(data=[[1, len(y) - np.sum(y)], [0, np.sum(y)]],
+                                columns=['label', 'rate'])
+            X_sample = X_sample.merge(rate, on='label') \
+                .sample(nrows, random_state=random_state, weights='rate')
+            y_sample = X_sample['label']
+            X_sample = X_sample.drop(['label', 'rate'], axis=1)
+        else:
+            # for unbalanced data - keep imbalance
+            nrows_1 = int(np.ceil(np.sum(y) / len(y) * np.sum(nrows)))
+            X_sample = X.assign(label=y)
+            X_sample_1 = X_sample \
+                .query("label == 1") \
+                .sample(nrows_1, random_state=random_state)
+            X_sample_0 = X_sample \
+                .query("label == 0") \
+                .sample(nrows - nrows_1, random_state=random_state)
+            X_sample = pd.concat([X_sample_0, X_sample_1],
+                                 sort=False,
+                                 ignore_index=True)
+            X_sample = shuffle(X_sample)
+            y_sample = X_sample['label']
+            X_sample = X_sample.drop(['label'], axis=1)
+    else:
+        X_sample = X
+        y_sample = y
+
+    return X_sample, y_sample
