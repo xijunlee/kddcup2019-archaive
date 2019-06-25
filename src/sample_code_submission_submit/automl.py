@@ -183,7 +183,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             X, X_val_double, y, y_val_double = data_split(X, y, test_size=TRAIN_DATA_SIZE, random_state=SEED)
         else:
             X, X_val_double, y, y_val_double = data_split(X, y, test_size=0.1, random_state=SEED)
-    X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE)
+    X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=SEED)
     data = lgb.Dataset(X_, label=y_, free_raw_data=free_raw_data)
 
     # cross validation
@@ -204,8 +204,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
     def objective(hyperparams):
         model_li = []
         if STOCHASTIC_CV:
-            X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=None)
-            X_train, X_val, y_train, y_val = data_split(X_, y_, test_size=0.2, random_state=None)
+            X_train, X_val, y_train, y_val = data_split(X_, y_, test_size=0.2, random_state=SEED)
             train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=True)
             valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
             model = lgb.train({**params, **hyperparams}, train_data, 300,
@@ -319,7 +318,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
                              algo=hyperopt.tpe.suggest, max_evals=HPO_EVALS, verbose=1,
-                             rstate=np.random.RandomState(1))
+                             rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
                              'hyperparams': {**params,
@@ -349,7 +348,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
                              algo=hyperopt.tpe.suggest, max_evals=6, verbose=1,
-                             rstate=np.random.RandomState(1))
+                             rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
                              'hyperparams': {**params,
@@ -366,7 +365,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
                              algo=hyperopt.tpe.suggest, max_evals=6, verbose=1,
-                             rstate=np.random.RandomState(1))
+                             rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
                              'hyperparams': {**params,
@@ -384,7 +383,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
                              algo=hyperopt.tpe.suggest, max_evals=6, verbose=1,
-                             rstate=np.random.RandomState(1))
+                             rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
                              'hyperparams': {**params,
@@ -401,7 +400,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
                              algo=hyperopt.tpe.suggest, max_evals=6, verbose=1,
-                             rstate=np.random.RandomState(1))
+                             rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
                              'hyperparams': {**params,

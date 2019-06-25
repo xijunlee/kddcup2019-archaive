@@ -121,7 +121,7 @@ train_lgb_params = {
 '''
 All kinds of seed
 '''
-SEED = 10086
+SEED = None
 HYPEROPT_SEED = SEED
 DOWNSAMPLING_SEED = SEED
 DATA_BALANCE_SEED = SEED
