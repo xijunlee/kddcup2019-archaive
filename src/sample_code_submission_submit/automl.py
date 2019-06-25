@@ -7,7 +7,7 @@ import pandas as pd
 from hyperopt import STATUS_OK, Trials, hp, space_eval, tpe
 from sklearn.metrics import roc_auc_score, f1_score
 from sklearn.utils import shuffle
-from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from deap import creator, tools
 
@@ -447,16 +447,20 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             hyperparams = trail['hyperparams']
             # hyperparams['ensemble_i'] = i
             ind = creator.Individual(hyperparams)
-            weights1 = (y == 1) * np.sum(y == 0) / len(y)
-            weights0 = (y == 0) * np.sum(y == 1) / len(y)
+            if STOCHASTIC_CV:
+                weights1 = (y == 1) * np.sum(y == 0) / len(y)
+                weights0 = (y == 0) * np.sum(y == 1) / len(y)
+            else:
+                weights1 = (y_ == 1) * np.sum(y_ == 0) / len(y_)
+                weights0 = (y_ == 0) * np.sum(y_ == 1) / len(y_)
             weights = weights0 + weights1
             if ENSEMBLE_OBJ == 3:
                 ind.fitness.values = (trail['result']['loss'],
-                                      -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2) * weights),
+                                      -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)),
                                       trail['result']['f1'])
             else:
                 ind.fitness.values = (trail['result']['loss'],
-                                      -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2) * weights))
+                                      -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)))
 
             pop.append(ind)
             i += 1
