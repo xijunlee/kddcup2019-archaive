@@ -332,30 +332,30 @@ def feature_engineer_rewrite(df, config, time_manager):
     feat_list = []
 
 
-
     # process multi value feature
     # st_time = time.time()
     mveEncoder = MVEncoder()
 
     # multi-value complicated encode trial
-    tmp = mveEncoder.fit_transform_complicate(df[mul_feature_list[0]])
-    duration = time_manager.check("once complicated mvencode method")
-    if duration * len(mul_feature_list) / time_manager.time_remain < 0.05:
-        with Pool(processes=CONSTANT.N_THREAD) as pool:
-            feat_list += pool.map(mveEncoder.fit_transform_complicate, [df[col] for col in mul_feature_list])
-            pool.close()
-            pool.join()
-        # ed_time = time.time()
-        # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
-        time_manager.check("complicated multi-value encoder")
-    else:
-        with Pool(processes=CONSTANT.N_THREAD) as pool:
-            feat_list += pool.map(mveEncoder.fit_transform_simple, [df[col] for col in mul_feature_list])
-            pool.close()
-            pool.join()
-        # ed_time = time.time()
-        # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
-        time_manager.check("simple multi-value encoder")
+    if len(mul_feature_list):
+        tmp = mveEncoder.fit_transform_complicate(df[mul_feature_list[0]])
+        duration = time_manager.check("once complicated mvencode method")
+        if duration * len(mul_feature_list) / time_manager.time_remain < 0.05:
+            with Pool(processes=CONSTANT.N_THREAD) as pool:
+                feat_list += pool.map(mveEncoder.fit_transform_complicate, [df[col] for col in mul_feature_list])
+                pool.close()
+                pool.join()
+            # ed_time = time.time()
+            # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+            time_manager.check("complicated multi-value encoder")
+        else:
+            with Pool(processes=CONSTANT.N_THREAD) as pool:
+                feat_list += pool.map(mveEncoder.fit_transform_simple, [df[col] for col in mul_feature_list])
+                pool.close()
+                pool.join()
+            # ed_time = time.time()
+            # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+            time_manager.check("simple multi-value encoder")
 
     # process category feature
     # st_time = time.time()
