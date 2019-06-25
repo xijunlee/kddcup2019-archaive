@@ -5,7 +5,6 @@ os.system("pip3 install --default-timeout=1000 hyperopt")
 os.system("pip3 install --default-timeout=1000 lightgbm")
 os.system("pip3 install -U --default-timeout=1000 pandas==0.24.2")
 os.system("pip3 install --default-timeout=1000 deap")
-# os.system("pip3 install --default-timeout=1000 category_encoders")
 
 import copy
 import numpy as np
@@ -100,8 +99,8 @@ class Model:
         else:
             selected_features = self.time_feature_list + self.mul_feature_list + self.num_feature_list
 
-        X = feature_engineer_rewrite(X.filter(selected_features), self.config)
-        time_manager.check("feature engineering")
+        X = feature_engineer_rewrite(X.filter(selected_features), self.config, time_manager)
+        time_manager.check("exit feature engineering")
 
         if FEATURE_SELECTION_SWITCH:
             X, self.selected_features_1 = feature_selection(X, y , self.config, FEATURE_RATIO_2)
@@ -125,7 +124,6 @@ class Model:
         main_table.index = main_table.index.map(lambda x: f"{x[0]}_{x[1]}")
         Xs[MAIN_TABLE_NAME] = main_table
 
-        # Xs[MAIN_TABLE_NAME] = clean_df(Xs[MAIN_TABLE_NAME])
         clean_df(Xs[MAIN_TABLE_NAME])
         time_manager.check("clean main table")
 
@@ -140,8 +138,8 @@ class Model:
             selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list + self.num_feature_list
         else:
             selected_features = self.time_feature_list + self.mul_feature_list + self.num_feature_list
-        X = feature_engineer_rewrite(X.filter(selected_features), self.config)
-        time_manager.check("feature engineering")
+        X = feature_engineer_rewrite(X.filter(selected_features), self.config, time_manager)
+        time_manager.check("exit feature engineering")
         print('', flush=True)
 
         # X = X[X.index.str.startswith("test")]

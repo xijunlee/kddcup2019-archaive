@@ -226,7 +226,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         result_dict = {'loss': -score, 'status': STATUS_OK}
 
         if DOUBLE_VAL:
-            result_dict['double_val_loss'] = np.mean([roc_auc_score(y_val_double, model.predict(X_val_double))
+            result_dict['double_val_loss'] = -np.mean([roc_auc_score(y_val_double, model.predict(X_val_double))
                                                       for model in model_li])
 
         if ENSEMBLE:
