@@ -109,7 +109,7 @@ class Model:
             duration += time_manager.check("second feature selection")
         print('', flush=True)
         self.config["prediction_estimated"] = 1.57 * duration
-        print(f"estimated prediction time: {self.config[\"prediction_estimated\"]}")
+        print(f"estimated prediction time: {self.config['prediction_estimated']}")
         train(X, y, self.config)
         time_manager.check("model training")
         print('', flush=True)
