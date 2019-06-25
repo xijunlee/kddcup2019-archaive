@@ -66,24 +66,24 @@ class Model:
     def fit(self, Xs, y, time_remain):
         print('', flush=True)
         time_manager = TimeManager(self.config, time_remain)
-
+        duration = 0
         # self.tables = copy.deepcopy(Xs)
         self.tables = Xs
         clean_tables(self.tables)
-        time_manager.check("clean tables")
+        duration += 2*time_manager.check("clean tables")
 
         if DROP_OUTLIER:
             # the percentage of outliers dropped is around 15% to 20%
             inlier_lable = drop_outlier(self.tables[MAIN_TABLE_NAME])
             self.tables[MAIN_TABLE_NAME] = self.tables[MAIN_TABLE_NAME][inlier_lable == 1].reset_index(drop=True)
             y = y[inlier_lable == 1].reset_index(drop=True)
-            time_manager.check("drop outlier")
+            duration += time_manager.check("drop outlier")
 
         X = merge_table(self.tables, self.config)
-        time_manager.check("merge table")
+        duration += 2*time_manager.check("merge table")
 
         clean_df(X)
-        time_manager.check("clean data before learning")
+        duration += 2*time_manager.check("clean data before learning")
 
         self.time_feature_list = [c for c in X if c.startswith(TIME_PREFIX)]
         self.mul_feature_list = [c for c in X if c.startswith(MULTI_CAT_PREFIX)]
@@ -99,14 +99,18 @@ class Model:
         else:
             selected_features = self.time_feature_list + self.mul_feature_list + self.num_feature_list
 
+        st = time.time()
         X = feature_engineer_rewrite(X.filter(selected_features), self.config, time_manager)
+        duration += 2*(time.time() - st)
         time_manager.check("exit feature engineering")
 
         if FEATURE_SELECTION_SWITCH:
             X, self.selected_features_1 = feature_selection(X, y , self.config, FEATURE_RATIO_2)
-            time_manager.check("second feature selection")
+            duration += time_manager.check("second feature selection")
         print('', flush=True)
 
+        self.config["prediction_estimated"] = 1.57 * duration
+        print(f"estimated prediction time: {self.config['prediction_estimated']}")
         train(X, y, self.config, time_manager)
         time_manager.check("model training")
         print('', flush=True)
