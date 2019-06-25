@@ -107,7 +107,7 @@ class Model:
             time_manager.check("second feature selection")
         print('', flush=True)
 
-        train(X, y, self.config)
+        train(X, y, self.config, time_manager)
         time_manager.check("model training")
         print('', flush=True)
 

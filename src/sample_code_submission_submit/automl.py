@@ -9,6 +9,7 @@ from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from deap import creator, tools
+from util import TimeManager
 
 from CONSTANT import (ENSEMBLE,
                       ENSEMBLE_OBJ,
@@ -27,8 +28,8 @@ from util import Config, log, timeit
 
 
 @timeit
-def train(X: pd.DataFrame, y: pd.Series, config: Config):
-    train_lightgbm(X, y, config)
+def train(X: pd.DataFrame, y: pd.Series, config: Config, time_manager: TimeManager):
+    train_lightgbm(X, y, config, time_manager)
 
 
 @timeit
@@ -50,7 +51,7 @@ def lgb_f1_score(preds, data):
     return 'f1', f1_score(y_true, preds), True
 
 @timeit
-def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
+def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config, time_manager: TimeManager):
     params = {
         "objective": "binary",
         "metric": "auc",  # binary_logloss, auc
@@ -62,7 +63,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
     }
 
     if ENSEMBLE:
-        hyperparams_li = hyperopt_lightgbm(X, y, params, config)
+        hyperparams_li = hyperopt_lightgbm(X, y, params, config, time_manager)
         # hyperparams_li = smac_lightgbm(X, y, params, config)
 
         if STACKING:
@@ -140,7 +141,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
     else:
         X_train, X_val, y_train, y_val = data_split(X, y, 0.2)
 
-        hyperparams = hyperopt_lightgbm(X, y, params, config)
+        hyperparams = hyperopt_lightgbm(X, y, params, config, time_manager)
         train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=True)
         valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
 
@@ -175,7 +176,7 @@ def predict_lightgbm(X: pd.DataFrame, config: Config) -> List:
 
 
 @timeit
-def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Config):
+def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Config, time_manager: TimeManager):
     free_raw_data = False if ENSEMBLE else True
 
     if DOUBLE_VAL:
@@ -189,7 +190,6 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
     # cross validation
     if STOCHASTIC_CV:
         data_all = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
-
     else:
         data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED).split(X_, y_)
         train_data_li = []
@@ -285,12 +285,20 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         trial_li = []
 
+        result = objective({})
+        trial_li.append({'result': result, 'hyperparams': {**params}})
+        eval_time = time_manager.check("first trial")
+        evals = (time_manager.time_remain - config["prediction_estimated"]) / eval_time - 5 * ENSEMBLE_SIZE * len(
+            y) / len(y_) / (1 if STOCHASTIC_CV else 5)
+        evals = np.maximum(evals, HPO_EVALS)
+        ensemble_size = ENSEMBLE_SIZE if evals < 2 * HPO_EVALS else ENSEMBLE_SIZE * 2
+
         space = {
-            "max_depth": hp.choice("max_depth", [3, 4, 5, 6, 7, 8]),
-            "num_leaves": hp.choice("num_leaves", range(10, 200, 20)),
-            "feature_fraction": hp.quniform("feature_fraction", 0.5, 0.9, 0.1),
-            "bagging_fraction": hp.quniform("bagging_fraction", 0.55, 0.95, 0.1),
-            "bagging_freq": hp.choice("bagging_freq", [1, 2, 4, 7, 10]),
+            "max_depth": hp.choice("max_depth", [2, 3, 4, 5, 6, 7, 8, 9]),
+            "num_leaves": hp.choice("num_leaves", range(5, 200, 10)),
+            "feature_fraction": hp.quniform("feature_fraction", 0.5, 0.9, 0.05),
+            "bagging_fraction": hp.quniform("bagging_fraction", 0.55, 0.95, 0.05),
+            "bagging_freq": hp.choice("bagging_freq", [1, 2, 4, 7, 10, 15]),
             "reg_alpha": hp.uniform("reg_alpha", 0, 1),
             "reg_lambda": hp.uniform("reg_lambda", 0, 1),
             "boosting_type": hp.choice("boosting_type", ["gbdt", "rf"]),
@@ -318,7 +326,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
-                             algo=hyperopt.tpe.suggest, max_evals=HPO_EVALS, verbose=1,
+                             algo=hyperopt.tpe.suggest, max_evals=evals, verbose=1,
                              rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
@@ -458,7 +466,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
             pop.append(ind)
             i += 1
-        pop = tools.selNSGA2(pop, ENSEMBLE_SIZE)
+        pop = tools.selNSGA2(pop, ensemble_size)
         hyperparams_li = list(pop)
 
         # # Method3: ensemble selection
