@@ -6,7 +6,7 @@ import pandas as pd
 from hyperopt import STATUS_OK, Trials, hp, space_eval, tpe
 from sklearn.metrics import roc_auc_score, f1_score
 from sklearn.utils import shuffle
-from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from deap import creator, tools
 
@@ -441,19 +441,19 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             if ENSEMBLE_OBJ == 3:
                 if DOUBLE_VAL:
                     ind.fitness.values = (trail['result']['double_val_loss'],
-                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2) * weights),
+                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)),
                                           trail['result']['f1'])
                 else:
                     ind.fitness.values = (trail['result']['loss'],
-                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2) * weights),
+                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)),
                                           trail['result']['f1'])
             else:
                 if DOUBLE_VAL:
                     ind.fitness.values = (trail['result']['double_val_loss'],
-                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2) * weights))
+                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)))
                 else:
                     ind.fitness.values = (trail['result']['loss'],
-                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2) * weights))
+                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)))
 
             pop.append(ind)
             i += 1
