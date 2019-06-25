@@ -108,8 +108,8 @@ class Model:
             X, self.selected_features_1 = feature_selection(X, y , self.config, FEATURE_RATIO_2)
             duration += time_manager.check("second feature selection")
         print('', flush=True)
-        print(f"estimated prediction time: {duration}")
         self.config["prediction_estimated"] = 1.57 * duration
+        print(f"estimated prediction time: {self.config[\"prediction_estimated\"]}")
         train(X, y, self.config)
         time_manager.check("model training")
         print('', flush=True)
