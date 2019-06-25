@@ -320,7 +320,7 @@ def fillna(df):
         df[c].fillna("0", inplace=True)
 
 @timeit
-def feature_engineer_rewrite(df, config, time_manager):
+def feature_engineer_rewrite(df, config, time_manager, mv_method=None):
 
     df.reset_index(inplace=True, drop=True)
     print(f"length of data: {len(df)}")
@@ -335,12 +335,31 @@ def feature_engineer_rewrite(df, config, time_manager):
     # process multi value feature
     # st_time = time.time()
     mveEncoder = MVEncoder()
-
+    mv_method = None if "mv_method" not in config else config["mv_method"]
     # multi-value complicated encode trial
     if len(mul_feature_list):
-        tmp = mveEncoder.fit_transform_complicate(df[mul_feature_list[0]])
-        duration = time_manager.check("once complicated mvencode method")
-        if duration * len(mul_feature_list) / time_manager.time_remain < 0.05:
+        if not mv_method:
+            tmp = mveEncoder.fit_transform_complicate(df[mul_feature_list[0]])
+            duration = time_manager.check("once complicated mvencode method")
+            if duration * len(mul_feature_list) / time_manager.time_remain < 0.05:
+                with Pool(processes=CONSTANT.N_THREAD) as pool:
+                    feat_list += pool.map(mveEncoder.fit_transform_complicate, [df[col] for col in mul_feature_list])
+                    pool.close()
+                    pool.join()
+                # ed_time = time.time()
+                # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+                time_manager.check("complicated multi-value encoder")
+                config["mv_method"] = "complicate"
+            else:
+                with Pool(processes=CONSTANT.N_THREAD) as pool:
+                    feat_list += pool.map(mveEncoder.fit_transform_simple, [df[col] for col in mul_feature_list])
+                    pool.close()
+                    pool.join()
+                # ed_time = time.time()
+                # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+                time_manager.check("simple multi-value encoder")
+                config["mv_method"] = "simple"
+        elif mv_method == "complicate":
             with Pool(processes=CONSTANT.N_THREAD) as pool:
                 feat_list += pool.map(mveEncoder.fit_transform_complicate, [df[col] for col in mul_feature_list])
                 pool.close()
@@ -348,7 +367,7 @@ def feature_engineer_rewrite(df, config, time_manager):
             # ed_time = time.time()
             # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
             time_manager.check("complicated multi-value encoder")
-        else:
+        elif mv_method == "simple":
             with Pool(processes=CONSTANT.N_THREAD) as pool:
                 feat_list += pool.map(mveEncoder.fit_transform_simple, [df[col] for col in mul_feature_list])
                 pool.close()
@@ -356,6 +375,7 @@ def feature_engineer_rewrite(df, config, time_manager):
             # ed_time = time.time()
             # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
             time_manager.check("simple multi-value encoder")
+
 
     # process category feature
     # st_time = time.time()
