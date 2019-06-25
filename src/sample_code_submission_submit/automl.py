@@ -287,11 +287,14 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         result = objective({})
         trial_li.append({'result': result, 'hyperparams': {**params}})
-        eval_time = time_manager.check("first trial")
-        evals = (time_manager.time_remain - config["prediction_estimated"]) / eval_time - 5 * ENSEMBLE_SIZE * len(
-            y) / len(y_) / (1 if STOCHASTIC_CV else 5)
-        evals = np.maximum(evals, HPO_EVALS)
+        eval_time = 1.2 * time_manager.check("first trial")
+        evals = int((time_manager.time_remain - config["prediction_estimated"]) / eval_time - 5 * 2 * ENSEMBLE_SIZE * len(
+            y) / len(y_) / (1 if STOCHASTIC_CV else 5))
+        evals = np.maximum(evals, 1)
         ensemble_size = ENSEMBLE_SIZE if evals < 2 * HPO_EVALS else ENSEMBLE_SIZE * 2
+        ensemble_size = np.minimum(evals, ensemble_size)
+        # evals = 10
+        # ensemble_size = 5
 
         space = {
             "max_depth": hp.choice("max_depth", [2, 3, 4, 5, 6, 7, 8, 9]),
