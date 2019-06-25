@@ -204,7 +204,8 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
     def objective(hyperparams):
         model_li = []
         if STOCHASTIC_CV:
-            X_train, X_val, y_train, y_val = data_split(X_, y_, test_size=0.2, random_state=SEED)
+            X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=None)
+            X_train, X_val, y_train, y_val = data_split(X_, y_, test_size=0.2, random_state=None)
             train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=True)
             valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
             model = lgb.train({**params, **hyperparams}, train_data, 300,
