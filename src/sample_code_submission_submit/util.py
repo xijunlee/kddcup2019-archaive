@@ -40,6 +40,7 @@ class TimeManager:
         log(f"[{info}] time left {self.time_remain:0.2f} sec")
         self.history_time.append(current)
         self.history_activity.append(info)
+        return duration
 
 
 def timeit(method, start_log=None):

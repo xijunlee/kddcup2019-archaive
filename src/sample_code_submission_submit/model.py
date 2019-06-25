@@ -1,10 +1,10 @@
 import os
 
-# os.system("pip3 install --default-timeout=1000 scikit-learn==0.21.2")
-# os.system("pip3 install --default-timeout=1000 hyperopt")
-# os.system("pip3 install --default-timeout=1000 lightgbm")
-# os.system("pip3 install -U --default-timeout=1000 pandas==0.24.2")
-# os.system("pip3 install --default-timeout=1000 deap")
+os.system("pip3 install --default-timeout=1000 scikit-learn==0.21.2")
+os.system("pip3 install --default-timeout=1000 hyperopt")
+os.system("pip3 install --default-timeout=1000 lightgbm")
+os.system("pip3 install -U --default-timeout=1000 pandas==0.24.2")
+os.system("pip3 install --default-timeout=1000 deap")
 
 import copy
 import numpy as np

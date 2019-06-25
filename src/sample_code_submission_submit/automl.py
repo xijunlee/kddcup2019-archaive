@@ -431,8 +431,12 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             hyperparams = trail['hyperparams']
             # hyperparams['ensemble_i'] = i
             ind = creator.Individual(hyperparams)
-            weights1 = (y == 1) * np.sum(y == 0) / len(y)
-            weights0 = (y == 0) * np.sum(y == 1) / len(y)
+            if STOCHASTIC_CV:
+                weights1 = (y == 1) * np.sum(y == 0) / len(y)
+                weights0 = (y == 0) * np.sum(y == 1) / len(y)
+            else:
+                weights1 = (y_ == 1) * np.sum(y_ == 0) / len(y_)
+                weights0 = (y_ == 0) * np.sum(y_ == 1) / len(y_)
             weights = weights0 + weights1
             if ENSEMBLE_OBJ == 3:
                 if DOUBLE_VAL:

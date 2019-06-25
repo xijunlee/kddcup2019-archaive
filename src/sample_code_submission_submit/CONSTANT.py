@@ -103,7 +103,7 @@ AUTO = True
 STACKING = False
 STACKING_METHOD = 1  # 0: lr; 1: lgb
 STOCHASTIC_CV = False
-TRAIN_DATA_SIZE = 30000
+TRAIN_DATA_SIZE = 20000
 
 
 # Parameter of automl
