@@ -63,7 +63,7 @@ class MissingValueProcessor:
         pass
 
 class CATEncoder:
-    def __init__(self, max_cat_num=12, cum_ratio_thr=0.5):
+    def __init__(self, max_cat_num=CONSTANT.num_cat_expand, cum_ratio_thr=0.5):
         self.max_cat_num = max_cat_num
         self.cum_ratio_thr = cum_ratio_thr
 
@@ -74,19 +74,19 @@ class CATEncoder:
         val_freq = ret_fact.value_counts(normalize=True).to_dict()
         ret_freq = ret_fact.map(val_freq).rename(f"n_FREQ({col.name})").astype("float")
 
-        # cat_count = ret_fact.value_counts().to_dict()
-        # n = min(self.max_cat_num, len(cat_count)-1)
-        #
-        # cat_list = list(cat_count.keys())[:n+1]
-        # f = lambda x: x if x in cat_list[:n] else cat_list[n]
-        # dummy_col = ret_fact.map(f)
-        #
-        # name_map = lambda x: f"c_{col.name}_DUMMY({x})"
-        # dummy_cols = pd.get_dummies(dummy_col).rename(name_map, axis=1)
-        #
-        # return pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
+        cat_count = ret_fact.value_counts().to_dict()
+        n = min(self.max_cat_num, len(cat_count)-1)
+        if n > 0:
+            cat_list = list(cat_count.keys())[:n+1]
+            f = lambda x: x if x in cat_list[:n] else cat_list[n]
+            dummy_col = ret_fact.map(f)
 
-        return pd.concat([ret_fact, ret_freq], axis=1)
+            name_map = lambda x: f"c_{col.name}_DUMMY({x})"
+            dummy_cols = pd.get_dummies(dummy_col).rename(name_map, axis=1)
+
+            return pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
+        else:
+            return pd.concat([ret_fact, ret_freq], axis=1)
 
 def seperate(x):
     try:
@@ -138,7 +138,7 @@ class MVEncoder:
         return col_encode
 
     def fit_transform_simple(self, col):
-        return col.map(seperate_count)
+        return col.map(seperate_count).astype("category").rename(f"c_MVCOUNT({col.name})")
 
 class NUMGenerator:
     def __init__(self):
@@ -183,6 +183,14 @@ class TIMEGenrator:
 
     def second(self, col):
         return col.dt.second.rename(f"n_SECOND({col.name})")
+
+    def time_diff(self, cols):
+        col_name = cols.columns
+        ret_list = []
+        for i in range(len(col_name)):
+            for j in range(i+1, len(col_name)):
+                ret_list.append(abs(cols[col_name[i]] - cols[col_name[j]]).dt.days.rename(f"t_diff({col_name[i]},{col_name[j]})"))
+        return ret_list
 
 @timeit
 def clean_tables(tables):
@@ -312,7 +320,7 @@ def fillna(df):
         df[c].fillna("0", inplace=True)
 
 @timeit
-def feature_engineer_rewrite(df, config):
+def feature_engineer_rewrite(df, config, time_manager):
 
     df.reset_index(inplace=True, drop=True)
     print(f"length of data: {len(df)}")
@@ -320,29 +328,30 @@ def feature_engineer_rewrite(df, config):
     num_feature_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
     cat_feature_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
     mul_feature_list = [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]
-    # time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
-
+    time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
     feat_list = []
 
-    # process category feature
-    st_time = time.time()
-    catEncoder = CATEncoder()
-    with Pool(processes=CONSTANT.N_THREAD) as pool:
-        feat_list += pool.map(catEncoder.fit_transform, [df[col] for col in cat_feature_list])
-        pool.close()
-        pool.join()
-    ed_time = time.time()
-    print(f"duration of catEncoder.fit_transform: {ed_time-st_time}")
-
     # process multi value feature
-    st_time = time.time()
+    # st_time = time.time()
     mveEncoder = MVEncoder()
     with Pool(processes=CONSTANT.N_THREAD) as pool:
         feat_list += pool.map(mveEncoder.fit_transform_simple, [df[col] for col in mul_feature_list])
         pool.close()
         pool.join()
-    ed_time = time.time()
-    print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+    # ed_time = time.time()
+    # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+    time_manager.check("multi-value encoder")
+
+    # process category feature
+    # st_time = time.time()
+    catEncoder = CATEncoder()
+    with Pool(processes=CONSTANT.N_THREAD) as pool:
+        feat_list += pool.map(catEncoder.fit_transform, [df[col] for col in cat_feature_list])
+        pool.close()
+        pool.join()
+    # ed_time = time.time()
+    # print(f"duration of catEncoder.fit_transform: {ed_time-st_time}")
+    time_manager.check("category encoder")
 
     # process number feature
     numGenerator = NUMGenerator()
@@ -351,24 +360,29 @@ def feature_engineer_rewrite(df, config):
     order_feature_list[0] = [df[col] for col in num_feature_list]
     for i in range(1, num_generate_order):
         for func in funcs:
-            st_time = time.time()
+            # st_time = time.time()
             with Pool(processes=CONSTANT.N_THREAD) as pool:
                 order_feature_list[i] += pool.map(getattr(numGenerator, func), order_feature_list[i-1])
                 pool.close()
                 pool.join()
-            ed_time = time.time()
-            print(f"duration of numGenerator.{func}: {ed_time-st_time}")
+            # ed_time = time.time()
+            # print(f"duration of numGenerator.{func}: {ed_time-st_time}")
     for order_feature in order_feature_list:
         feat_list += order_feature
+    time_manager.check("numeric encoder")
 
     timeGenerator = TIMEGenrator()
     funcs, time_list = CONSTANT.time_primitives, []
     for func in funcs:
-        st_time = time.time()
+        # st_time = time.time()
         cmd = "timeGenerator." + func + "(df[config[\"time_col\"]])"
         feat_list += [eval(cmd)]
-        ed_time = time.time()
-        print(f"duration of timeGenerator.{func}: {ed_time-st_time}")
+        # ed_time = time.time()
+        # print(f"duration of timeGenerator.{func}: {ed_time-st_time}")
+    time_manager.check("time encoder")
+
+    feat_list += timeGenerator.time_diff(df[time_feature_list])
+    time_manager.check("time difference")
 
     return pd.concat(feat_list, axis=1)
 
@@ -548,10 +562,11 @@ def _shap_feature_selection(X_raw, y_raw, config, n_selected_features, seed=None
     train_x, valid_x, train_y, valid_y = train_test_split(X_raw, y_raw, test_size=0.2, shuffle=True, stratify=y_raw,
                                                           random_state=seed)
     train_features = X_raw.columns
+    categorical_feats = [c for c in X_raw if c.startswith(CONSTANT.CATEGORY_PREFIX)]
     lgb_params = CONSTANT.pre_lgb_params
     lgb_params["seed"] = seed
-    dtrain = lgb.Dataset(train_x, train_y, free_raw_data=False, silent=True)
-    dvalid = lgb.Dataset(valid_x, valid_y, free_raw_data=False, silent=True)
+    dtrain = lgb.Dataset(train_x, train_y, free_raw_data=False, silent=True, categorical_feature=categorical_feats)
+    dvalid = lgb.Dataset(valid_x, valid_y, free_raw_data=False, silent=True, categorical_feature=categorical_feats)
     lgbm = lgb.train(lgb_params,
                      dtrain,
                      2500,
@@ -588,15 +603,17 @@ def _imp_feature_selection(X_raw, y_raw, config, n_selected_features, seed=None)
     X, y = X_raw, y_raw
 
     train_features = X.columns.values
+    categorical_feats = [c for c in X if c.startswith(CONSTANT.CATEGORY_PREFIX)]
     # Fit LightGBM in RF mode, yes it's quicker than sklearn RandomForest
-    dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True)
+    dtrain = lgb.Dataset(X, y, free_raw_data=False, silent=True, categorical_feature=categorical_feats)
     lgb_params = CONSTANT.pre_lgb_params
     lgb_params["seed"] = seed
     lgb_params["colsample_bytree"] = np.sqrt(len(train_features)) / len(train_features)
     # Fit the model
-    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
+    # clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
+
     # if there still exist categorical features
-    #clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200, categorical_feature=categorical_feats)
+    clf = lgb.train(params=lgb_params, train_set=dtrain, num_boost_round=200)
 
     # Get feature importances
     imp_df = pd.DataFrame()

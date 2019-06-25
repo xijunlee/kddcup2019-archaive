@@ -30,8 +30,9 @@ WINDOW_RATIO = 0.001
 
 # Switch and parameter of data reduction
 REDUCTION_SWITCH = False
-VARIANCE_RATIO = 0.95 # the VARIANCE RAITO is used in PCA
+VARIANCE_RATIO = 0.95  # the VARIANCE RAITO is used in PCA
 
+num_cat_expand = 0
 num_generate_order = 2
 num_primitives = [
     "cum_mean",
@@ -52,6 +53,8 @@ time_primitives = [
 
 # Switch and parameter of feature selection
 FEATURE_SELECTION_SWITCH = True
+FEATURE_RATIO_1 = 0.8
+FEATURE_RATIO_2 = 0.8
 pre_lgb_params = {
         'objective': 'binary',
         'boosting_type': 'rf',
@@ -99,7 +102,7 @@ HPO_EVALS = 10
 AUTO = True
 STACKING = False
 STACKING_METHOD = 1  # 0: lr; 1: lgb
-STOCHASTIC_CV = True
+STOCHASTIC_CV = False
 TRAIN_DATA_SIZE = 30000
 
 
@@ -118,7 +121,7 @@ train_lgb_params = {
 '''
 All kinds of seed
 '''
-SEED = None
+SEED = 10086
 HYPEROPT_SEED = SEED
 DOWNSAMPLING_SEED = SEED
 DATA_BALANCE_SEED = SEED
