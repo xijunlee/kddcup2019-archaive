@@ -40,7 +40,6 @@ def join(u, v, v_name, key, type_):
 
 @timeit
 def temporal_join(u, v, v_name, key, time_col):
-
     timer = Timer()
     window_size = CONSTANT.WINDOW_SIZE if len(u) * CONSTANT.WINDOW_RATIO < CONSTANT.WINDOW_SIZE \
         else int(len(u) * CONSTANT.WINDOW_RATIO)

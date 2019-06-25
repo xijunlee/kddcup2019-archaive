@@ -5,27 +5,32 @@ os.system("pip3 install --default-timeout=1000 hyperopt")
 os.system("pip3 install --default-timeout=1000 lightgbm")
 os.system("pip3 install -U --default-timeout=1000 pandas==0.24.2")
 os.system("pip3 install --default-timeout=1000 deap")
-# os.system("pip3 install --default-timeout=1000 category_encoders")
 
 import copy
 import numpy as np
 import pandas as pd
 
-from CONSTANT import MAIN_TABLE_NAME, \
-    REDUCTION_SWITCH, \
-    FEATURE_SELECTION_SWITCH, \
-    DATA_BALANCE_SWITCH, \
-    BAYESIAN_OPT,\
-    ENSEMBLE, \
-    ENSEMBLE_OBJ, \
-    DATA_DOWNSAMPLING_SWITCH, TIME_PREFIX, MULTI_CAT_PREFIX, DROP_OUTLIER, NUMERICAL_PREFIX
+from CONSTANT import (MAIN_TABLE_NAME,
+                      REDUCTION_SWITCH,
+                      FEATURE_SELECTION_SWITCH,
+                      DATA_BALANCE_SWITCH,
+                      BAYESIAN_OPT,
+                      ENSEMBLE,
+                      ENSEMBLE_OBJ,
+                      DATA_DOWNSAMPLING_SWITCH,
+                      TIME_PREFIX,
+                      MULTI_CAT_PREFIX,
+                      DROP_OUTLIER,
+                      NUMERICAL_PREFIX,
+                      FEATURE_RATIO_1,
+                      FEATURE_RATIO_2)
 from merge import merge_table
-from preprocess import clean_df, \
-    clean_tables, \
-    feature_selection, \
-    feature_engineer_rewrite, \
-    drop_outlier, \
-    test_data_feature_selection
+from preprocess import (clean_df,
+                        clean_tables,
+                        feature_selection,
+                        feature_engineer_rewrite,
+                        drop_outlier,
+                        test_data_feature_selection)
 from util import Config, log, show_dataframe, timeit, TimeManager
 from deap import base, creator
 import datetime, time
@@ -87,16 +92,18 @@ class Model:
         print('', flush=True)
 
         if FEATURE_SELECTION_SWITCH:
-            _, self.selected_features_0 = feature_selection(X.drop(columns=self.time_feature_list+self.mul_feature_list)
-                                                            , y, self.config, 0.8)
+            _, self.selected_features_0 = feature_selection(X.drop(columns=self.time_feature_list+self.mul_feature_list+self.num_feature_list)
+                                                            , y, self.config, FEATURE_RATIO_1)
             time_manager.check("first feature selection")
-        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list
+            selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list + self.num_feature_list
+        else:
+            selected_features = self.time_feature_list + self.mul_feature_list + self.num_feature_list
 
-        X = feature_engineer_rewrite(X.filter(selected_features), self.config)
-        time_manager.check("feature engineering")
+        X = feature_engineer_rewrite(X.filter(selected_features), self.config, time_manager)
+        time_manager.check("exit feature engineering")
 
         if FEATURE_SELECTION_SWITCH:
-            X, self.selected_features_1 = feature_selection(X, y, self.config, 0.8)
+            X, self.selected_features_1 = feature_selection(X, y , self.config, FEATURE_RATIO_2)
             time_manager.check("second feature selection")
         print('', flush=True)
 
@@ -117,7 +124,6 @@ class Model:
         main_table.index = main_table.index.map(lambda x: f"{x[0]}_{x[1]}")
         Xs[MAIN_TABLE_NAME] = main_table
 
-        # Xs[MAIN_TABLE_NAME] = clean_df(Xs[MAIN_TABLE_NAME])
         clean_df(Xs[MAIN_TABLE_NAME])
         time_manager.check("clean main table")
 
@@ -128,13 +134,16 @@ class Model:
         time_manager.check("clean data before learning")
         print('', flush=True)
 
-        selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list
-        X = feature_engineer_rewrite(X.filter(selected_features), self.config)
-        time_manager.check("feature engineering")
+        if FEATURE_SELECTION_SWITCH:
+            selected_features = list(self.selected_features_0) + self.time_feature_list + self.mul_feature_list + self.num_feature_list
+        else:
+            selected_features = self.time_feature_list + self.mul_feature_list + self.num_feature_list
+        X = feature_engineer_rewrite(X.filter(selected_features), self.config, time_manager)
+        time_manager.check("exit feature engineering")
         print('', flush=True)
 
         # X = X[X.index.str.startswith("test")]
-        X = X.iloc[len_X_train:,]
+        X = X.iloc[len_X_train:, ]
         X.sort_index(inplace=True)
         time_manager.check("X sorting")
         if FEATURE_SELECTION_SWITCH:

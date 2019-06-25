@@ -64,7 +64,7 @@ class MissingValueProcessor:
         pass
 
 class CATEncoder:
-    def __init__(self, max_cat_num=10, cum_ratio_thr=0.5):
+    def __init__(self, max_cat_num=CONSTANT.num_cat_expand, cum_ratio_thr=0.5):
         self.max_cat_num = max_cat_num
         self.cum_ratio_thr = cum_ratio_thr
 
@@ -77,17 +77,17 @@ class CATEncoder:
 
         cat_count = ret_fact.value_counts().to_dict()
         n = min(self.max_cat_num, len(cat_count)-1)
+        if n > 0:
+            cat_list = list(cat_count.keys())[:n+1]
+            f = lambda x: x if x in cat_list[:n] else cat_list[n]
+            dummy_col = ret_fact.map(f)
 
-        cat_list = list(cat_count.keys())[:n+1]
-        f = lambda x: x if x in cat_list[:n] else cat_list[n]
-        dummy_col = ret_fact.map(f)
+            name_map = lambda x: f"c_{col.name}_DUMMY({x})"
+            dummy_cols = pd.get_dummies(dummy_col).rename(name_map, axis=1)
 
-        name_map = lambda x: f"c_{col.name}_DUMMY({x})"
-        dummy_cols = pd.get_dummies(dummy_col).rename(name_map, axis=1)
-
-        return pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
-
-        # return pd.concat([ret_fact, ret_freq], axis=1)
+            return pd.concat([dummy_cols, ret_fact, ret_freq], axis=1)
+        else:
+            return pd.concat([ret_fact, ret_freq], axis=1)
 
 def seperate(x):
     try:
@@ -184,6 +184,14 @@ class TIMEGenrator:
 
     def second(self, col):
         return col.dt.second.rename(f"n_SECOND({col.name})")
+
+    def time_diff(self, cols):
+        col_name = cols.columns
+        ret_list = []
+        for i in range(len(col_name)):
+            for j in range(i+1, len(col_name)):
+                ret_list.append(abs(cols[col_name[i]] - cols[col_name[j]]).dt.days.rename(f"t_diff({col_name[i]},{col_name[j]})"))
+        return ret_list
 
 @timeit
 def clean_tables(tables):
@@ -313,7 +321,7 @@ def fillna(df):
         df[c].fillna("0", inplace=True)
 
 @timeit
-def feature_engineer_rewrite(df, config):
+def feature_engineer_rewrite(df, config, time_manager):
 
     df.reset_index(inplace=True, drop=True)
     print(f"length of data: {len(df)}")
@@ -321,29 +329,30 @@ def feature_engineer_rewrite(df, config):
     num_feature_list = [c for c in df if c.startswith(CONSTANT.NUMERICAL_PREFIX)]
     cat_feature_list = [c for c in df if c.startswith(CONSTANT.CATEGORY_PREFIX)]
     mul_feature_list = [c for c in df if c.startswith(CONSTANT.MULTI_CAT_PREFIX)]
-    # time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
-
+    time_feature_list = [c for c in df if c.startswith(CONSTANT.TIME_PREFIX)]
     feat_list = []
 
-    # process category feature
-    st_time = time.time()
-    catEncoder = CATEncoder()
-    with Pool(processes=CONSTANT.N_THREAD) as pool:
-        feat_list += pool.map(catEncoder.fit_transform, [df[col] for col in cat_feature_list])
-        pool.close()
-        pool.join()
-    ed_time = time.time()
-    print(f"duration of catEncoder.fit_transform: {ed_time-st_time}")
-
     # process multi value feature
-    st_time = time.time()
+    # st_time = time.time()
     mveEncoder = MVEncoder()
     with Pool(processes=CONSTANT.N_THREAD) as pool:
         feat_list += pool.map(mveEncoder.fit_transform_simple, [df[col] for col in mul_feature_list])
         pool.close()
         pool.join()
-    ed_time = time.time()
-    print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+    # ed_time = time.time()
+    # print(f"duration of mveEncoder.fit_transform: {ed_time-st_time}")
+    time_manager.check("multi-value encoder")
+
+    # process category feature
+    # st_time = time.time()
+    catEncoder = CATEncoder()
+    with Pool(processes=CONSTANT.N_THREAD) as pool:
+        feat_list += pool.map(catEncoder.fit_transform, [df[col] for col in cat_feature_list])
+        pool.close()
+        pool.join()
+    # ed_time = time.time()
+    # print(f"duration of catEncoder.fit_transform: {ed_time-st_time}")
+    time_manager.check("category encoder")
 
     # process number feature
     numGenerator = NUMGenerator()
@@ -352,24 +361,29 @@ def feature_engineer_rewrite(df, config):
     order_feature_list[0] = [df[col] for col in num_feature_list]
     for i in range(1, num_generate_order):
         for func in funcs:
-            st_time = time.time()
+            # st_time = time.time()
             with Pool(processes=CONSTANT.N_THREAD) as pool:
                 order_feature_list[i] += pool.map(getattr(numGenerator, func), order_feature_list[i-1])
                 pool.close()
                 pool.join()
-            ed_time = time.time()
-            print(f"duration of numGenerator.{func}: {ed_time-st_time}")
+            # ed_time = time.time()
+            # print(f"duration of numGenerator.{func}: {ed_time-st_time}")
     for order_feature in order_feature_list:
         feat_list += order_feature
+    time_manager.check("numeric encoder")
 
     timeGenerator = TIMEGenrator()
     funcs, time_list = CONSTANT.time_primitives, []
     for func in funcs:
-        st_time = time.time()
+        # st_time = time.time()
         cmd = "timeGenerator." + func + "(df[config[\"time_col\"]])"
         feat_list += [eval(cmd)]
-        ed_time = time.time()
-        print(f"duration of timeGenerator.{func}: {ed_time-st_time}")
+        # ed_time = time.time()
+        # print(f"duration of timeGenerator.{func}: {ed_time-st_time}")
+    time_manager.check("time encoder")
+
+    feat_list += timeGenerator.time_diff(df[time_feature_list])
+    time_manager.check("time difference")
 
     return pd.concat(feat_list, axis=1)
 

@@ -177,26 +177,20 @@ def predict_lightgbm(X: pd.DataFrame, config: Config) -> List:
 
 @timeit
 def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Config):
-    if ENSEMBLE:
-        # global model_i
-        # model_i = 0
-        free_raw_data = False
-    else:
-        free_raw_data = True
+    free_raw_data = False if ENSEMBLE else True
 
-    # X_train, X_val, y_train, y_val = data_split(X, y, test_size=0.2)
-    # train_data = lgb.Dataset(X, label=y_train)
-    # valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=free_raw_data)
-
-    X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE)
+    if DOUBLE_VAL:
+        if len(X) > 10 * TRAIN_DATA_SIZE:
+            X, X_val_double, y, y_val_double = data_split(X, y, test_size=TRAIN_DATA_SIZE, random_state=SEED)
+        else:
+            X, X_val_double, y, y_val_double = data_split(X, y, test_size=0.1, random_state=SEED)
+    X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=SEED)
     data = lgb.Dataset(X_, label=y_, free_raw_data=free_raw_data)
 
     # cross validation
     if STOCHASTIC_CV:
         data_all = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
-        # data_gen = StratifiedKFold(n_splits=50, shuffle=True, random_state=SEED).split(X, y)
 
-        # validate_set_num = int(np.ceil(TRAIN_DATA_SIZE / 5 / (len(y) / 50)))
     else:
         # if DOUBLE_VAL:
         #     X, X_val_double, y, y_val_double = data_split(X, y, 0.1)
@@ -215,11 +209,9 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         data_indices = np.concatenate(valid_indices_li)
 
     def objective(hyperparams):
-
         model_li = []
         if STOCHASTIC_CV:
-            X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=None)
-            X_train, X_val, y_train, y_val = data_split(X_, y_, test_size=0.2, random_state=None)
+            X_train, X_val, y_train, y_val = data_split(X_, y_, test_size=0.2, random_state=SEED)
             train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=True)
             valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
             model = lgb.train({**params, **hyperparams}, train_data, 300,
@@ -240,10 +232,9 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         # in classification, less is better
         result_dict = {'loss': -score, 'status': STATUS_OK}
 
-        # if DOUBLE_VAL:
-        #     a = model.eval(data_val_double, name='double_val')
-        #     result_dict['double_val_loss'] = np.mean([model.eval(data_val_double.data, name='double_val')
-        #                                               for model in model_li])
+        if DOUBLE_VAL:
+            result_dict['double_val_loss'] = np.mean([roc_auc_score(y_val_double, model.predict(X_val_double))
+                                                      for model in model_li])
 
         if ENSEMBLE:
             # save the model
@@ -491,16 +482,15 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         return hyperparams_li
     else:
-        # if DOUBLE_VAL:
-        #     min_double_val_loss = 0
-        #     hyperparams = None
-        #     for trial in trial_li:
-        #         if trial['result']['double_val_loss'] < min_double_val_loss:
-        #             hyperparams = trial['hyperparams']
-        #             min_double_val_loss = trial['result']['double_val_loss']
-        # else:
-        #     hyperparams = space_eval(space, best)
-        hyperparams = space_eval(space, best)
+        if DOUBLE_VAL:
+            min_double_val_loss = 0
+            hyperparams = None
+            for trial in trial_li:
+                if trial['result']['double_val_loss'] < min_double_val_loss:
+                    hyperparams = trial['hyperparams']
+                    min_double_val_loss = trial['result']['double_val_loss']
+        else:
+            hyperparams = space_eval(space, best)
         log(f"auc = {-trials.best_trial['result']['loss']:0.4f} {hyperparams}")
         return hyperparams
 
