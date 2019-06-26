@@ -127,6 +127,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config, time_manager: 
             train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=False)
             valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=False)
 
+            time_manager.check("before final training")
             config["model"] = [lgb.train({**params, **hyperparams, **{"learning_rate": 0.1, "num_boost_round": 300}},
                                          train_data,
                                          300,
@@ -138,6 +139,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config, time_manager: 
                                          # init_model=f"model_{hyperparams['ensemble_i']}"
                                          )
                                for hyperparams in hyperparams_li]
+            time_manager.check("after final training")
     else:
         X_train, X_val, y_train, y_val = data_split(X, y, 0.2)
 
@@ -285,14 +287,14 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         trial_li = []
 
+        time_manager.check("before first trial")
         result = objective({})
         trial_li.append({'result': result, 'hyperparams': {**params}})
-        eval_time = 1.2 * time_manager.check("first trial")
-        evals = int((time_manager.time_remain - config["prediction_estimated"]) / eval_time - 5 * 2 * ENSEMBLE_SIZE * len(
-            y) / len(y_) / (1 if STOCHASTIC_CV else 5))
+        eval_time = 1.1 * time_manager.check("first trial")
+        evals = int((time_manager.time_remain - config["prediction_estimated"]) / eval_time -
+                    3 * ENSEMBLE_SIZE / (1 if STOCHASTIC_CV else 5))
         evals = np.maximum(evals, 1)
-        ensemble_size = ENSEMBLE_SIZE if evals < 2 * HPO_EVALS else ENSEMBLE_SIZE * 2
-        ensemble_size = np.minimum(evals, ensemble_size)
+        ensemble_size = np.minimum(int(evals/2+1), ENSEMBLE_SIZE)
         # evals = 10
         # ensemble_size = 5
 

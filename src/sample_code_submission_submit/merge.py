@@ -59,9 +59,9 @@ def temporal_join(u, v, v_name, key, time_col):
     tmp_u = pd.concat([tmp_u, v], keys=['u', 'v'], sort=False)
     timer.check("concat")
 
-    rehash_key = f'rehash_{key}'
-    tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x) % CONSTANT.HASH_MAX)
-    timer.check("rehash_key")
+    # rehash_key = f'rehash_{key}'
+    # tmp_u[rehash_key] = tmp_u[key].apply(lambda x: hash(x) % CONSTANT.HASH_MAX)
+    # timer.check("rehash_key")
 
     tmp_u.sort_values(time_col, inplace=True)
     timer.check("sort")
@@ -70,8 +70,8 @@ def temporal_join(u, v, v_name, key, time_col):
                  and not col.startswith(CONSTANT.TIME_PREFIX)
                  and not col.startswith(CONSTANT.MULTI_CAT_PREFIX)}
 
-    tmp_u = tmp_u.groupby(rehash_key).rolling(window=CONSTANT.WINDOW_SIZE).agg(agg_funcs)
-    # tmp_u = tmp_u.rolling(window=CONSTANT.WINDOW_SIZE).agg(agg_funcs)
+    # tmp_u = tmp_u.groupby(rehash_key).rolling(window=CONSTANT.WINDOW_SIZE).agg(agg_funcs)
+    tmp_u = tmp_u.rolling(window=CONSTANT.WINDOW_SIZE).agg(agg_funcs)
 
     # timer.check("group & rolling & agg")
     #
