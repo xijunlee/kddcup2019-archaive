@@ -76,6 +76,8 @@ python3 ingestion_program/ingestion.py local sample_data sample_predictions inge
 python3 scoring_program/score.py local sample_predictions sample_ref sample_scoring_output
 ```
 
+# 第一名方案经验总结
+
 题目特点
 在这次比赛中，主要有以下难点：
 

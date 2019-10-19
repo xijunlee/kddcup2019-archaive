@@ -70,19 +70,6 @@ def temporal_join(u, v, v_name, key, time_col):
                  and not col.startswith(CONSTANT.TIME_PREFIX)
                  and not col.startswith(CONSTANT.MULTI_CAT_PREFIX)}
 
-<<<<<<< HEAD
-    # tmp_u = tmp_u.groupby(rehash_key).rolling(window=5, min_periods=1).agg(agg_funcs).fillna(0)
-    # timer.check("group & rolling & agg")
-    # tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
-    # timer.check("reset_index")
-
-    tmp2_u = tmp_u.groupby(rehash_key).rolling(window='200ms', on=time_col).agg(agg_funcs).fillna(0)
-    tmp_u = tmp_u.reset_index().merge(tmp2_u.reset_index(),
-                                  on=[rehash_key, time_col],
-                                  how='left').set_index(['level_0', 'level_1']).filter(tmp2_u.columns)
-    timer.check("group & rolling & agg")
-
-=======
     # tmp_u = tmp_u.groupby(rehash_key).rolling(window=CONSTANT.WINDOW_SIZE).agg(agg_funcs)
     tmp_u = tmp_u.rolling(window=window_size).agg(agg_funcs)
 
@@ -91,7 +78,6 @@ def temporal_join(u, v, v_name, key, time_col):
     # tmp_u.reset_index(0, drop=True, inplace=True)  # drop rehash index
     # timer.check("reset_index")
 
->>>>>>> merge
     tmp_u.columns = tmp_u.columns.map(lambda a:
         f"{CONSTANT.NUMERICAL_PREFIX}{a[1].upper()}_ROLLING5({v_name}.{a[0]})")
 
@@ -106,10 +92,7 @@ def temporal_join(u, v, v_name, key, time_col):
                   how="outer")
     timer.check("final concat")
 
-<<<<<<< HEAD
     del tmp_u, tmp2_u
-=======
->>>>>>> merge
 
     return ret
 
@@ -120,42 +103,3 @@ def dfs(u_name, config, tables, graph):
         v_name = edge['to']
         if config['tables'][v_name]['depth'] <= config['tables'][u_name]['depth']:
             continue
-
-        v = dfs(v_name, config, tables, graph)
-        key = edge['key']
-        type_ = edge['type']
-
-        if config['time_col'] not in u and config['time_col'] in v:
-            continue
-
-        if config['time_col'] in u and config['time_col'] in v:
-            log(f"join {u_name} <--{type_}--t {v_name}")
-            u = temporal_join(u, v, v_name, key, config['time_col'])
-        else:
-            log(f"join {u_name} <--{type_}--nt {v_name}")
-            u = join(u, v, v_name, key, type_)
-
-        del v
-
-    log(f"leave {u_name}")
-    return u
-
-
-@timeit
-def merge_table(tables, config):
-    graph = defaultdict(list)
-    for rel in config['relations']:
-        ta = rel['table_A']
-        tb = rel['table_B']
-        graph[ta].append({
-            "to": tb,
-            "key": rel['key'],
-            "type": rel['type']
-        })
-        graph[tb].append({
-            "to": ta,
-            "key": rel['key'],
-            "type": '_'.join(rel['type'].split('_')[::-1])
-        })
-    bfs(CONSTANT.MAIN_TABLE_NAME, graph, config['tables'])
-    return dfs(CONSTANT.MAIN_TABLE_NAME, config, tables, graph)
