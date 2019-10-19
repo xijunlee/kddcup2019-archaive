@@ -2,11 +2,6 @@ import os
 import pickle
 import time
 from typing import Any
-<<<<<<< HEAD
-import pandas as pd
-=======
-import datetime
->>>>>>> merge
 
 import CONSTANT
 
@@ -22,30 +17,6 @@ class Timer:
         current = time.time()
         log(f"[{info}] spend {current - self.history[-1]:0.2f} sec")
         self.history.append(current)
-
-    def time_left(self, info):
-        left_time = self.config["time_budget"] - (time.time() - self.config["start_time"])
-        log(f"[{info}] left time: {l}")
-        return left_time
-
-class TimeManager:
-    def __init__(self, config, time_remain):
-        self.config = config
-        self.start_time = time.time()
-        self.history_time = [self.start_time]
-        self.history_activity = ["init"]
-        self.time_remain = time_remain
-
-    def check(self, info):
-        current = time.time()
-        duration = current - self.history_time[-1]
-        self.time_remain -= duration
-        log(f"[{info}] spend {duration:0.2f} sec")
-        log(f"[{info}] time left {self.time_remain:0.2f} sec")
-        self.history_time.append(current)
-        self.history_activity.append(info)
-        return duration
-
 
 def timeit(method, start_log=None):
     def timed(*args, **kw):
@@ -114,13 +85,7 @@ class Config:
         # category类型的数据，aggregation操作只是count
         ops = {
             CONSTANT.NUMERICAL_TYPE: ["mean", "sum", "std", "median", "min", "max"],
-<<<<<<< HEAD
-            # CONSTANT.CATEGORY_TYPE: ["count"],
-            CONSTANT.CATEGORY_TYPE: [pd.Series.nunique],
-=======
             CONSTANT.CATEGORY_TYPE: ["count"],
-            # CONSTANT.CATEGORY_TYPE: [pd.Series.nunique],
->>>>>>> merge
             #  TIME_TYPE: ["max"],
             #  MULTI_CAT_TYPE: [my_unique]
         }
@@ -134,6 +99,9 @@ class Config:
         if col.startswith(CONSTANT.TIME_PREFIX):
             assert False, f"Time type feature's aggregate op are not implemented."
         assert False, f"Unknown col type {col}"
+
+    def time_left(self):
+        return self["time_budget"] - (time.time() - self["start_time"])
 
     def __getitem__(self, key):
         return self.data[key]

@@ -26,42 +26,52 @@ There must exist a relationship between HASH_MAX and WINDOW_SIZE:
 HASH_MAX = 200
 HASH_BIN = 100
 WINDOW_SIZE = 5
-WINDOW_RATIO = 0.0001
+WINDOW_RATIO = 0.001
 
 # Switch and parameter of data reduction
 REDUCTION_SWITCH = False
-VARIANCE_RATIO = 0.95  # the VARIANCE RAITO is used in PCA
+VARIANCE_RATIO = 0.95 # the VARIANCE RAITO is used in PCA
 
-num_cat_expand = 0
+# Select the agg and trans primitives you want to look over
+agg_primitives=[
+        # 'std', 'min', 'max', 'mean',
+        # 'percent_true', 'last', 'count',
+        # 'trend', 'n_most_common'
+]
+trans_primitives=[
+        'cum_mean', 'cum_min', 'cum_max', 'cum_prod', 'cum_sum', 'second', 'minute'
+        #'percentile', 'cum_mean', 'cum_min', 'cum_count', 'cum_max'
+        # 'subtract_numeric', 'add_numeric', 'diff', 'absolute',
+        # 'modulo_numeric', 'hour', 'week', 'month', 'second', 'minute', 'weekday', 'year'
+]
+
 num_generate_order = 2
 num_primitives = [
     "cum_mean",
-    "cum_sum",
-    "cum_max",
-    "cum_min",
+    # "cum_sum",
+    # "cum_max",
+    # "cum_min",
     # "cum_prod",
 ]
 
 time_primitives = [
     # "year",
-    "month",
-    "day",
-    "hour",
+    # "month",
+    # "day",
+    # "hour",
     "minute",
     "second"
 ]
 
 # Switch and parameter of feature selection
 FEATURE_SELECTION_SWITCH = True
-FEATURE_RATIO_1 = 0.8
-FEATURE_RATIO_2 = 0.8
 pre_lgb_params = {
         'objective': 'binary',
         'boosting_type': 'rf',
         'metric': 'auc',
         'subsample': 0.8,
         'colsample_bytree': 0.8,
-        'num_leaves': 50,
+        'num_leaves': 100,
         'max_depth': 8,
         'bagging_freq': 1,
         'n_jobs': 4,
@@ -81,15 +91,8 @@ feature_selection_param = {
 DATA_BALANCE_SWITCH = False
 SAMPLE_UP_OR_DOWN = "down"
 
-# Use Bayesian optimization
+
 BAYESIAN_OPT = False
-
-# Drop outliers from the training set
-DROP_OUTLIER = False
-
-# Use double validation sets
-DOUBLE_VAL = False
-
 # Switch and parameter of data downsampling
 DATA_DOWNSAMPLING_SWITCH = False
 DOWNSAMPLING_RATIO = 0.5
@@ -97,14 +100,16 @@ DOWNSAMPLING_RATIO = 0.5
 # Parameter of model ensemble
 ENSEMBLE = True
 ENSEMBLE_OBJ = 2  # currently 2 is better than 3
-ENSEMBLE_SIZE = 5
-HPO_EVALS = 10
-AUTO = True
-STACKING = False
-STACKING_METHOD = 1  # 0: lr; 1: lgb
-STOCHASTIC_CV = False
-TRAIN_DATA_SIZE = 20000
 
+# Parameter of categorical hash
+cat_hash_params = {
+    "cat": {
+        "method": "freq" # 3 options : "bd", "freq", "fact"
+    },
+    "multi_cat": {
+        "method": "count" # 3 options: "freq", "count", "base"
+    }
+}
 
 # Parameter of automl
 train_lgb_params = {
@@ -113,7 +118,7 @@ train_lgb_params = {
         "metric": "auc",
         "verbosity": -1,
         "seed": None,
-        "num_threads": 4,
+        # "num_threads": 4,
         'n_jobs': 4,
         # "is_unbalance": True
 }

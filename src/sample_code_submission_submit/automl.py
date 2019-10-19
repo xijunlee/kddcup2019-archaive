@@ -1,5 +1,4 @@
 from typing import Dict, List
-
 import hyperopt
 import lightgbm as lgb
 import numpy as np
@@ -7,32 +6,30 @@ import pandas as pd
 from hyperopt import STATUS_OK, Trials, hp, space_eval, tpe
 from sklearn.metrics import roc_auc_score, f1_score
 from sklearn.utils import shuffle
-from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.linear_model import LogisticRegression
-from CONSTANT import ENSEMBLE, ENSEMBLE_OBJ, AUTO, STACKING, STACKING_METHOD, HPO_EVALS, ENSEMBLE_SIZE, STOCHASTIC_CV, TRAIN_DATA_SIZE
 from deap import creator, tools
-from itertools import chain
-import time
-import numpy as np
+from util import TimeManager
 
-# # Import ConfigSpace and different types of parameters
-# from smac.configspace import ConfigurationSpace
-# from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
-#     UniformFloatHyperparameter, UniformIntegerHyperparameter
-# from ConfigSpace.conditions import InCondition
-#
-# # Import SMAC-utilities
-# from smac.tae.execute_func import ExecuteTAFuncDict
-# from smac.scenario.scenario import Scenario
-# from smac.facade.smac_facade import SMAC
-
-
+from CONSTANT import (ENSEMBLE,
+                      ENSEMBLE_OBJ,
+                      AUTO, STACKING,
+                      STACKING_METHOD,
+                      HPO_EVALS,
+                      ENSEMBLE_SIZE,
+                      STOCHASTIC_CV,
+                      TRAIN_DATA_SIZE,
+                      TIME_PREFIX,
+                      TABLE_PREFIX,
+                      DOUBLE_VAL,
+                      SEED)
+from preprocess import clean_df
 from util import Config, log, timeit
 
 
 @timeit
-def train(X: pd.DataFrame, y: pd.Series, config: Config):
-    train_lightgbm(X, y, config)
+def train(X: pd.DataFrame, y: pd.Series, config: Config, time_manager: TimeManager):
+    train_lightgbm(X, y, config, time_manager)
 
 
 @timeit
@@ -54,21 +51,19 @@ def lgb_f1_score(preds, data):
     return 'f1', f1_score(y_true, preds), True
 
 @timeit
-def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
+def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config, time_manager: TimeManager):
     params = {
         "objective": "binary",
         "metric": "auc",  # binary_logloss, auc
         "verbosity": -1,
-        "seed": 1,
+        "seed": SEED,
         "num_threads": 4,
         # "is_unbalance": True,
         # "scale_pos_weight": 2,
     }
 
-    # X_sample, y_sample = data_sample(X, y, TRAIN_DATA_SIZE)
-
     if ENSEMBLE:
-        hyperparams_li = hyperopt_lightgbm(X, y, params, config)
+        hyperparams_li = hyperopt_lightgbm(X, y, params, config, time_manager)
         # hyperparams_li = smac_lightgbm(X, y, params, config)
 
         if STACKING:
@@ -79,7 +74,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
 
             # cross validation
             data = lgb.Dataset(X, label=y, free_raw_data=False)
-            data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
+            data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED).split(X, y)
             train_data_li = []
             valid_date_li = []
             valid_indices_li = []
@@ -101,16 +96,16 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
                                          ) for i in range(5)]
                                for hyperparams in hyperparams_li]
 
-            predicts = np.zeros(len(y))
             predicts_li = []
             for model in config["model"]:
+                predicts = np.zeros(len(y))
                 predicts[data_indices] = np.concatenate([model[i].predict(valid_date_li[i].data) for i in range(5)])
                 predicts_li.append(predicts)
             ys = np.transpose(np.array(predicts_li))
             if STACKING_METHOD == 0:
-                class_weight = {1: 1 - np.sum(y) / len(y), 0: np.sum(y) / len(y)}
-                config["stacker_model"] = LogisticRegression(class_weight=class_weight, n_jobs=4,
-                                                             max_iter=500, random_state=1).fit(ys, y)
+                config["stacker_model"] = LogisticRegression(n_jobs=4,
+                                                             class_weight='balanced',
+                                                             random_state=SEED).fit(ys, y)
             else:
                 ys_train, ys_val, y_train, y_val = data_split(ys, y, 0.1)
                 train_data = lgb.Dataset(ys_train, label=y_train, free_raw_data=False)
@@ -132,6 +127,7 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
             train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=False)
             valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=False)
 
+            time_manager.check("before final training")
             config["model"] = [lgb.train({**params, **hyperparams, **{"learning_rate": 0.1, "num_boost_round": 300}},
                                          train_data,
                                          300,
@@ -143,10 +139,11 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
                                          # init_model=f"model_{hyperparams['ensemble_i']}"
                                          )
                                for hyperparams in hyperparams_li]
+            time_manager.check("after final training")
     else:
         X_train, X_val, y_train, y_val = data_split(X, y, 0.2)
 
-        hyperparams = hyperopt_lightgbm(X, y, params, config)
+        hyperparams = hyperopt_lightgbm(X, y, params, config, time_manager)
         train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=True)
         valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
 
@@ -165,15 +162,15 @@ def train_lightgbm(X: pd.DataFrame, y: pd.Series, config: Config):
 def predict_lightgbm(X: pd.DataFrame, config: Config) -> List:
     if ENSEMBLE:
         if STACKING:
-            Xs = np.transpose(np.array([np.mean([model[i].predict(X) for i in range(5)], axis=0) for model in config["model"]]))
+            ys = np.transpose(np.array([np.mean([model[i].predict(X) for i in range(5)], axis=0) for model in config["model"]]))
             if STACKING_METHOD == 0:
-                predicts = config["stacker_model"].predict_proba(Xs)
-                ys = np.zeros(len(Xs))
-                ys[predicts[:, 0] >= 0.5] = config["stacker_model"].classes_[0]
-                ys[predicts[:, 1] >= 0.5] = config["stacker_model"].classes_[1]
-                return ys
+                predicts = config["stacker_model"].predict_proba(ys)
+                y = np.zeros(len(X))
+                y[predicts[:, 0] >= 0.5] = config["stacker_model"].classes_[0]
+                y[predicts[:, 1] >= 0.5] = config["stacker_model"].classes_[1]
+                return y
             else:
-                return config["stacker_model"].predict(Xs)
+                return config["stacker_model"].predict(ys)
         else:
             return np.mean([model.predict(X) for model in config["model"]], axis=0)
     else:
@@ -181,55 +178,47 @@ def predict_lightgbm(X: pd.DataFrame, config: Config) -> List:
 
 
 @timeit
-def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Config):
-    if ENSEMBLE:
-        # global model_i
-        # model_i = 0
-        free_raw_data = False
-    else:
-        free_raw_data = True
+def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Config, time_manager: TimeManager):
+    free_raw_data = False if ENSEMBLE else True
 
-    # X_train, X_val, y_train, y_val = data_split(X, y, test_size=0.2)
-    # train_data = lgb.Dataset(X, label=y_train)
-    # valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=free_raw_data)
+    if DOUBLE_VAL:
+        if len(X) > 10 * TRAIN_DATA_SIZE:
+            X, X_val_double, y, y_val_double = data_split(X, y, test_size=TRAIN_DATA_SIZE, random_state=SEED)
+        else:
+            X, X_val_double, y, y_val_double = data_split(X, y, test_size=0.1, random_state=SEED)
+    X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=SEED)
+    data = lgb.Dataset(X_, label=y_, free_raw_data=free_raw_data)
 
     # cross validation
     if STOCHASTIC_CV:
-        data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
-        # data_gen = StratifiedKFold(n_splits=50, shuffle=True, random_state=1).split(X, y)
-
-        validate_set_num = int(np.ceil(TRAIN_DATA_SIZE / 5 / (len(y) / 50)))
+        data_all = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
     else:
-        X, y = data_sample(X, y, TRAIN_DATA_SIZE)
-        data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
-        data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
-
+        data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED).split(X_, y_)
         train_data_li = []
-        valid_date_li = []
+        valid_data_li = []
         valid_indices_li = []
         for train_indices, valid_indices in data_gen:
             train_data_li.append(data.subset(train_indices))
-            valid_date_li.append(data.subset(valid_indices))
+            valid_data_li.append(data.subset(valid_indices))
             valid_indices_li.append(valid_indices)
         data_indices = np.concatenate(valid_indices_li)
 
     def objective(hyperparams):
-
         model_li = []
         if STOCHASTIC_CV:
             X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=None)
             X_train, X_val, y_train, y_val = data_split(X_, y_, test_size=0.2, random_state=None)
             train_data = lgb.Dataset(X_train, label=y_train, free_raw_data=True)
-            valid_date = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
+            valid_data = lgb.Dataset(X_val, label=y_val, free_raw_data=True)
             model = lgb.train({**params, **hyperparams}, train_data, 300,
-                              valid_date, early_stopping_rounds=30, verbose_eval=0,
+                              valid_data, early_stopping_rounds=30, verbose_eval=0,
                               # feval=lgb_f1_score
                               )
             model_li.append(model)
         else:
             for j in range(len(train_data_li)):
                 model = lgb.train({**params, **hyperparams}, train_data_li[j], 300,
-                                  valid_date_li[j], early_stopping_rounds=30, verbose_eval=0,
+                                  valid_data_li[j], early_stopping_rounds=30, verbose_eval=0,
                                   # feval=lgb_f1_score
                                   )
                 model_li.append(model)
@@ -238,6 +227,10 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         # in classification, less is better
         result_dict = {'loss': -score, 'status': STATUS_OK}
+
+        if DOUBLE_VAL:
+            result_dict['double_val_loss'] = -np.mean([roc_auc_score(y_val_double, model.predict(X_val_double))
+                                                      for model in model_li])
 
         if ENSEMBLE:
             # save the model
@@ -249,17 +242,16 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             # result_dict['predicts'] = np.mean([model.predict(data.data) for model in model_li], axis=0)
             if STOCHASTIC_CV:
                 if len(model_li) == 1:
-                    result_dict['predicts'] = model_li[0].predict(data.data)
+                    result_dict['predicts'] = model_li[0].predict(data_all.data)
                 else:
-                    result_dict['predicts'] = np.mean(model_li[0].predict(data.data), axis=0)
+                    result_dict['predicts'] = np.mean(model_li[0].predict(data_all.data), axis=0)
             else:
                 result_dict['predicts'] = np.zeros(data.num_data())
-                result_dict['predicts'][data_indices] = np.concatenate([model_li[j].predict(valid_date_li[j].data)
-                                                                        for j in range(len(valid_date_li))])
+                result_dict['predicts'][data_indices] = np.concatenate([model_li[j].predict(valid_data_li[j].data)
+                                                                        for j in range(len(valid_data_li))])
 
             if ENSEMBLE_OBJ == 3:
-                # num of weak sub-models
-                result_dict['num_trees'] = model.num_trees()
+                result_dict['f1'] = -f1_score(y, np.round(result_dict['predicts']))
 
         return result_dict
 
@@ -271,40 +263,51 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             "bagging_fraction": 0.8,
             "learning_rate": 0.1
         })
-        X_, y_ = data_sample(X, y, TRAIN_DATA_SIZE, random_state=None)
-        train_data = lgb.Dataset(X_, label=y_, free_raw_data=True)
-        cv_results = lgb.cv({**params}, train_data, 500, nfold=5, metrics="auc", early_stopping_rounds=30, verbose_eval=0)
-        params["num_boost_round"] = len(cv_results["auc-mean"])
-        print("beat_cv_score: ", cv_results["auc-mean"][-1])
+        # cv_results = lgb.cv({**params}, data, 500, nfold=5, metrics="auc", early_stopping_rounds=30, verbose_eval=0)
+        # params["num_boost_round"] = 2 * len(cv_results["auc-mean"])
+        # print("best_cv_score: ", cv_results["auc-mean"][-1])
+
+        # ratio = np.sum(y < 0.5) / np.sum(y > 0.5)
+        # if ratio > 10 or ratio < 0.1:
+        #     scale_pos_weight_sapce = 1 / np.linspace(1, 1 / ratio / 2, 10) if ratio < 1 \
+        #         else np.linspace(1, ratio / 2, 10)
+        #     best_loss = 0
+        #     second_loss = 0
+        #     scale_pos_weight = 1
+        #     for value in scale_pos_weight_sapce:
+        #         result = objective({"scale_pos_weight": value})
+        #         if result['loss'] < best_loss:
+        #             scale_pos_weight = value
+        #             second_loss = best_loss
+        #             best_loss = result['loss']
+        #         elif result['loss'] > second_loss:
+        #             break
+        #     params.update({"scale_pos_weight": scale_pos_weight})
+        #     print("best_params: ", params)
 
         trial_li = []
 
-        # space = {
-        #     "scale_pos_weight": hp.uniform("scale_pos_weight", np.sum(y == 0) / np.sum(y == 1) * 2, 1)
-        #     if np.sum(y == 0) / (np.sum(y == 1) + 0.0001) < 1
-        #     else hp.uniform('scale_pos_weight', 1, np.sum(y == 0) / np.sum(y == 1) / 2),
-        # }
-        # trials = Trials()
-        # best = hyperopt.fmin(fn=objective, space=space, trials=trials,
-        #                      algo=hyperopt.tpe.suggest, max_evals=6, verbose=1,
-        #                      rstate=np.random.RandomState(1))
-        # for trial in trials._dynamic_trials:
-        #     trial_li.append({'result': trial['result'],
-        #                      'hyperparams': {**params,
-        #                                      **space_eval(space,
-        #                                                   {key: value[0] for key, value
-        #                                                    in trial['misc']['vals'].items()})}})
-        # params.update(space_eval(space, best))
-        # print("beat_params: ", params)
+        time_manager.check("before first trial")
+        result = objective({})
+        trial_li.append({'result': result, 'hyperparams': {**params}})
+        eval_time = 1 * time_manager.check("first trial")
+        evals = int((time_manager.time_remain - config["prediction_estimated"]) / eval_time -
+                    1.2 * (float(len(y)) / float(len(y_))) * ENSEMBLE_SIZE / (1.0 if STOCHASTIC_CV else 5.0))
+        evals = np.maximum(evals, 1)
+        ensemble_size = np.minimum(int(evals/2+1), ENSEMBLE_SIZE)
+        # evals = 10
+        # ensemble_size = 5
 
         space = {
-            "max_depth": hp.choice("max_depth", [3, 5, 7, 9]),
-            "num_leaves": hp.choice("num_leaves", range(5, 200, 20)),
-            "feature_fraction": hp.quniform("feature_fraction", 0.5, 0.9, 0.1),
-            "bagging_fraction": hp.quniform("bagging_fraction", 0.6, 1.0, 0.1),
-            "bagging_freq": hp.choice("bagging_freq", [1, 2, 4, 7, 10]),
+            "max_depth": hp.choice("max_depth", [2, 3, 4, 5, 6, 7, 8, 9]),
+            "num_leaves": hp.choice("num_leaves", range(5, 200, 10)),
+            "feature_fraction": hp.quniform("feature_fraction", 0.5, 0.9, 0.05),
+            "bagging_fraction": hp.quniform("bagging_fraction", 0.55, 0.95, 0.05),
+            "bagging_freq": hp.choice("bagging_freq", [1, 2, 4, 7, 10, 15]),
             "reg_alpha": hp.uniform("reg_alpha", 0, 1),
             "reg_lambda": hp.uniform("reg_lambda", 0, 1),
+            "boosting_type": hp.choice("boosting_type", ["gbdt", "rf"]),
+            # "num_boost_round": hp.choice("num_boost_round", range(50, 500, 50)),
             # "learning_rate": hp.loguniform("learning_rate", np.log(0.01), np.log(0.5)),
             # "max_depth": hp.choice("max_depth", [-1, 2, 3, 4, 5, 6]),
             # "num_leaves": hp.choice("num_leaves", np.linspace(10, 200, 50, dtype=int)),
@@ -328,8 +331,8 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
-                             algo=hyperopt.tpe.suggest, max_evals=HPO_EVALS, verbose=1,
-                             rstate=np.random.RandomState(1))
+                             algo=hyperopt.tpe.suggest, max_evals=evals, verbose=1,
+                             rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
                              'hyperparams': {**params,
@@ -337,7 +340,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
                                                           {key: value[0] for key, value
                                                            in trial['misc']['vals'].items()})}})
         params.update(space_eval(space, best))
-        print("beat_params: ", params)
+        print("best_params: ", params)
     else:
         params.update({
             "max_depth": 6,
@@ -359,7 +362,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
                              algo=hyperopt.tpe.suggest, max_evals=6, verbose=1,
-                             rstate=np.random.RandomState(1))
+                             rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
                              'hyperparams': {**params,
@@ -376,7 +379,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
                              algo=hyperopt.tpe.suggest, max_evals=6, verbose=1,
-                             rstate=np.random.RandomState(1))
+                             rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
                              'hyperparams': {**params,
@@ -394,7 +397,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
                              algo=hyperopt.tpe.suggest, max_evals=6, verbose=1,
-                             rstate=np.random.RandomState(1))
+                             rstate=np.random.RandomState(SEED))
         for trial in trials._dynamic_trials:
             trial_li.append({'result': trial['result'],
                              'hyperparams': {**params,
@@ -411,11 +414,8 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         trials = Trials()
         best = hyperopt.fmin(fn=objective, space=space, trials=trials,
                              algo=hyperopt.tpe.suggest, max_evals=6, verbose=1,
-                             rstate=np.random.RandomState(1))
-        for trial in trials._dynamic_trials:
-            trial_li.append({'result': trial['result'],
+                             rstate=np.random.RandomState(SEED))
                              'hyperparams': {**params,
-                                             **space_eval(space,
                                                           {key: value[0] for key, value in
                                                            trial['misc']['vals'].items()})}})
         params.update(space_eval(space, best))
@@ -433,6 +433,8 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         #     hyperparams_li.append(space_eval(space, best))
 
         # Method2: select top half of the classifiers according to NCL
+        # trial_li.sort(key=lambda trail: trail['result']['loss'])
+        # trial_li = trial_li[0:int(ENSEMBLE_SIZE * 0.8)]
         predicts_ens = np.mean([trail['result']['predicts'] for trail in trial_li], axis=0)
         pop = []
         i = 0
@@ -440,21 +442,33 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
             hyperparams = trail['hyperparams']
             # hyperparams['ensemble_i'] = i
             ind = creator.Individual(hyperparams)
-            # weights1 = (y_val == 1) * np.sum(y_val == 0) / len(y_val)
-            # weights0 = (y_val == 0) * np.sum(y_val == 1) / len(y_val)
-            # weights = weights0 + weights1
-            if ENSEMBLE_OBJ == 3:
-                ind.fitness.values = (trail['result']['loss'],
-                                      -np.sum(((trail['result']['predicts'] - predicts_ens) ** 2)),
-                                      trail['result']['num_trees'])
+            if STOCHASTIC_CV:
+                weights1 = (y == 1) * np.sum(y == 0) / len(y)
+                weights0 = (y == 0) * np.sum(y == 1) / len(y)
             else:
-                ind.fitness.values = (trail['result']['loss'],
-                                      -np.sum(((trail['result']['predicts'] - predicts_ens) ** 2)))
+                weights1 = (y_ == 1) * np.sum(y_ == 0) / len(y_)
+                weights0 = (y_ == 0) * np.sum(y_ == 1) / len(y_)
+            weights = weights0 + weights1
+            if ENSEMBLE_OBJ == 3:
+                if DOUBLE_VAL:
+                    ind.fitness.values = (trail['result']['double_val_loss'],
+                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)),
+                                          trail['result']['f1'])
+                else:
+                    ind.fitness.values = (trail['result']['loss'],
+                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)),
+                                          trail['result']['f1'])
+            else:
+                if DOUBLE_VAL:
+                    ind.fitness.values = (trail['result']['double_val_loss'],
+                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)))
+                else:
+                    ind.fitness.values = (trail['result']['loss'],
+                                          -np.mean(((trail['result']['predicts'] - predicts_ens) ** 2)))
 
             pop.append(ind)
             i += 1
-        pop = tools.selNSGA2(pop, ENSEMBLE_SIZE)
-        # pop = tools.selNSGA2(pop, 20)
+        pop = tools.selNSGA2(pop, ensemble_size)
         hyperparams_li = list(pop)
 
         # # Method3: ensemble selection
@@ -467,7 +481,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         #     best_trail = min(dynamic_trials,
         #                      key=lambda data:
         #                      np.mean(np.abs(valid_data.label -
-        #                                     np.round((sum_predicts + data['result']['predicts']) /
+        #                                     ((sum_predicts + data['result']['predicts']) /
         #                                              num_classifiers))))
         #     dynamic_trials = [trail for trail in dynamic_trials if trail != best_trail]
         #     sum_predicts += best_trail['result']['predicts']
@@ -476,7 +490,7 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         #         hyperparams[key] = best_trail['misc']['vals'][key][0]
         #     hyperparams = space_eval(space, hyperparams)
         #     hyperparams['ensemble_error'] = \
-        #         np.mean(np.abs(valid_data.label - np.round(sum_predicts / num_classifiers)))
+        #         np.mean(np.abs(valid_data.label - (sum_predicts / num_classifiers)))
         #     hyperparams['ensemble_num'] = num_classifiers
         #     hyperparams_li.append(hyperparams)
         # ensemble_num = min(hyperparams_li, key=lambda data: data['ensemble_error'])['ensemble_num']
@@ -485,186 +499,26 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
 
         return hyperparams_li
     else:
-        hyperparams = space_eval(space, best)
+        if DOUBLE_VAL:
+            min_double_val_loss = 0
+            hyperparams = None
+            for trial in trial_li:
+                if trial['result']['double_val_loss'] < min_double_val_loss:
+                    hyperparams = trial['hyperparams']
+                    min_double_val_loss = trial['result']['double_val_loss']
+        else:
+            hyperparams = space_eval(space, best)
         log(f"auc = {-trials.best_trial['result']['loss']:0.4f} {hyperparams}")
         return hyperparams
 
-# @timeit
-# def smac_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Config):
-#     if ENSEMBLE:
-#         # global model_i
-#         # model_i = 0
-#         free_raw_data = False
-#     else:
-#         free_raw_data = True
-#
-#     # cross validation
-#     data = lgb.Dataset(X, label=y, free_raw_data=free_raw_data)
-#     data_gen = StratifiedKFold(n_splits=5, shuffle=True, random_state=1).split(X, y)
-#     train_data_li = []
-#     valid_date_li = []
-#     valid_indices_li = []
-#     for train_indices, valid_indices in data_gen:
-#         train_data_li.append(data.subset(train_indices))
-#         valid_date_li.append(data.subset(valid_indices))
-#         valid_indices_li.append(valid_indices)
-#     data_indices = np.concatenate(valid_indices_li)
-#
-#     def objective(hyperparams):
-#
-#         hyperparams = {k: hyperparams[k] for k in hyperparams if hyperparams[k]}
-#
-#         model_li = []
-#         for j in range(len(train_data_li)):
-#             model = lgb.train({**params, **hyperparams}, train_data_li[j], 300,
-#                               valid_date_li[j], early_stopping_rounds=30, verbose_eval=0,
-#                               # feval=lgb_f1_score
-#                               )
-#             model_li.append(model)
-#
-#         score = np.mean([model.best_score["valid_0"][params["metric"]] for model in model_li])
-#
-#         # in classification, less is better
-#         result_dict = {'loss': -score, 'status': STATUS_OK, }
-#
-#         if ENSEMBLE:
-#             # save the model
-#             # global model_i
-#             # model.save_model(f"model_{model_i}", num_iteration=model.best_iteration)
-#             # model_i = model_i + 1
-#
-#             # predicts of valid set
-#             # result_dict['predicts'] = np.round(np.mean([model.predict(data.data) for model in model_li], axis=0))
-#             result_dict['predicts'] = np.zeros(data.num_data())
-#             result_dict['predicts'][data_indices] = np.concatenate([model_li[j].predict(valid_date_li[j].data)
-#                                                                     for j in range(len(valid_date_li))])
-#
-#             if ENSEMBLE_OBJ == 3:
-#                 # num of weak sub-models
-#                 result_dict['num_trees'] = model.num_trees()
-#
-#         global trail_li
-#         trail_li.append({"result": result_dict, "hyperparams": hyperparams})
-#         print(f"SMAC current score: {score}")
-#
-#         return -score
-#
-#     params.update({
-#         "max_depth": 6,
-#         "num_leaves": 50,
-#         "feature_fraction": 0.8,
-#         "bagging_fraction": 0.8,
-#         "learning_rate": 0.1
-#     })
-#     cv_results = lgb.cv({**params}, data, 500, nfold=5, metrics="auc", early_stopping_rounds=30, verbose_eval=0)
-#     params["num_boost_round"] = len(cv_results["auc-mean"])
-#     print("beat_cv_score: ", cv_results["auc-mean"][-1])
-#
-#     trial_li = []
-#
-#     # Build Configuration Space which defines all parameters and their ranges
-#     cs = ConfigurationSpace()
-#     max_depth = CategoricalHyperparameter("max_depth", [3, 5, 7, 9], default_value=5)
-#     num_leaves = CategoricalHyperparameter("num_leaves", range(5, 200, 20), default_value=25)
-#     feature_fraction = UniformFloatHyperparameter("feature_fraction", 0.5, 0.9, default_value=0.8)
-#     bagging_fraction = UniformFloatHyperparameter("bagging_fraction", 0.6, 1.0, default_value=0.8)
-#     bagging_freq = CategoricalHyperparameter("bagging_freq", [1, 2, 4, 7, 10], default_value=10)
-#     reg_alpha = UniformFloatHyperparameter("reg_alpha", 0.0, 1.0, default_value=0.1)
-#     reg_lambda = UniformFloatHyperparameter("reg_lambda", 0.0, 1.0, default_value=0.1)
-#     cs.add_hyperparameters([max_depth, num_leaves, feature_fraction, bagging_fraction, bagging_freq,
-#                             reg_alpha, reg_lambda])
-#
-#     # Scenario object
-#     scenario = Scenario({"run_obj": "quality",  # we optimize quality (alternatively runtime)
-#                          "runcount-limit": 10,  # maximum function evaluations
-#                          "cs": cs,  # configuration space
-#                          "deterministic": "true",
-#                          })
-#
-#     # Optimize, using a SMAC-object
-#     print("Optimizing! Depending on your machine, this might take a few minutes.")
-#     smac = SMAC(scenario=scenario, rng=np.random.RandomState(1),
-#                 tae_runner=objective)
-#     best = smac.optimize()
-#
-#     params.update({k: best[k] for k in best if best[k]})
-#     print("beat_params: ", params)
-#
-#     if ENSEMBLE:
-#         # # Method1: select top half of the classifiers according to auc
-#         # trials._dynamic_trials.sort(key=lambda data: data['result']['loss'])
-#         # best_li = [trial['misc']['vals']
-#         #            for trial in trials._dynamic_trials[0:ENSEMBLE_SIZE]]
-#         # hyperparams_li = []
-#         # for best in best_li:
-#         #     for key in best:
-#         #         best[key] = best[key][0]
-#         #     hyperparams_li.append(space_eval(space, best))
-#
-#         # Method2: select top half of the classifiers according to NCL
-#         predicts_ens = np.mean([trail['result']['predicts'] for trail in trial_li], axis=0)
-#         pop = []
-#         i = 0
-#         for trail in trial_li:
-#             hyperparams = trail['hyperparams']
-#             # hyperparams['ensemble_i'] = i
-#             ind = creator.Individual(hyperparams)
-#             # weights1 = (y_val == 1) * np.sum(y_val == 0) / len(y_val)
-#             # weights0 = (y_val == 0) * np.sum(y_val == 1) / len(y_val)
-#             # weights = weights0 + weights1
-#             if ENSEMBLE_OBJ == 3:
-#                 ind.fitness.values = (trail['result']['loss'],
-#                                       -np.sum(((trail['result']['predicts'] - predicts_ens) ** 2)),
-#                                       trail['result']['num_trees'])
-#             else:
-#                 ind.fitness.values = (trail['result']['loss'],
-#                                       -np.sum(((trail['result']['predicts'] - predicts_ens) ** 2)))
-#
-#             pop.append(ind)
-#             i += 1
-#         pop = tools.selNSGA2(pop, ENSEMBLE_SIZE)
-#         # pop = tools.selNSGA2(pop, 20)
-#         hyperparams_li = list(pop)
-#
-#         # # Method3: ensemble selection
-#         # num_classifiers = 0
-#         # sum_predicts = 0
-#         # hyperparams_li = []
-#         # dynamic_trials = trials._dynamic_trials.copy()
-#         # for i in range(len(dynamic_trials)):
-#         #     num_classifiers += 1
-#         #     best_trail = min(dynamic_trials,
-#         #                      key=lambda data:
-#         #                      np.mean(np.abs(valid_data.label -
-#         #                                     np.round((sum_predicts + data['result']['predicts']) /
-#         #                                              num_classifiers))))
-#         #     dynamic_trials = [trail for trail in dynamic_trials if trail != best_trail]
-#         #     sum_predicts += best_trail['result']['predicts']
-#         #     hyperparams = {}
-#         #     for key in best_trail['misc']['vals']:
-#         #         hyperparams[key] = best_trail['misc']['vals'][key][0]
-#         #     hyperparams = space_eval(space, hyperparams)
-#         #     hyperparams['ensemble_error'] = \
-#         #         np.mean(np.abs(valid_data.label - np.round(sum_predicts / num_classifiers)))
-#         #     hyperparams['ensemble_num'] = num_classifiers
-#         #     hyperparams_li.append(hyperparams)
-#         # ensemble_num = min(hyperparams_li, key=lambda data: data['ensemble_error'])['ensemble_num']
-#         # print(f"Ensemble_num: {ensemble_num}!!!")
-#         # hyperparams_li = hyperparams_li[0:ensemble_num]
-#
-#         return hyperparams_li
-#     else:
-#         hyperparams = space_eval(space, best)
-#         log(f"auc = {-trials.best_trial['result']['loss']:0.4f} {hyperparams}")
-#         return hyperparams
 
 
-def data_split(X: pd.DataFrame, y: pd.Series, test_size: float=0.2, random_state=1):
+def data_split(X: pd.DataFrame, y: pd.Series, test_size: float=0.2, random_state=SEED):
     #  -> (pd.DataFrame, pd.Series, pd.DataFrame, pd.Series):
     return train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=y)
 
 
-def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int = 5000, method: int = 2, random_state=1):
+def data_sample(X: pd.DataFrame, y: pd.Series, nrows: int = 5000, method: int = 2, random_state=SEED):
     # -> (pd.DataFrame, pd.Series):
     if len(X) > nrows:
         if method == 0:
