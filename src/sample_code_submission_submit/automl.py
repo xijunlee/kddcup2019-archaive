@@ -290,9 +290,9 @@ def hyperopt_lightgbm(X: pd.DataFrame, y: pd.Series, params: Dict, config: Confi
         time_manager.check("before first trial")
         result = objective({})
         trial_li.append({'result': result, 'hyperparams': {**params}})
-        eval_time = 1.1 * time_manager.check("first trial")
+        eval_time = 1 * time_manager.check("first trial")
         evals = int((time_manager.time_remain - config["prediction_estimated"]) / eval_time -
-                    3 * ENSEMBLE_SIZE / (1 if STOCHASTIC_CV else 5))
+                    1.2 * (float(len(y)) / float(len(y_))) * ENSEMBLE_SIZE / (1.0 if STOCHASTIC_CV else 5.0))
         evals = np.maximum(evals, 1)
         ensemble_size = np.minimum(int(evals/2+1), ENSEMBLE_SIZE)
         # evals = 10

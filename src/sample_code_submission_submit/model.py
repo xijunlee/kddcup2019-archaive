@@ -1,6 +1,6 @@
 import os
 
-# os.system("pip3 install --default-timeout=1000 scikit-learn==0.21.2")
+os.system("pip3 install --default-timeout=1000 scikit-learn==0.21.2")
 os.system("pip3 install --default-timeout=1000 hyperopt")
 os.system("pip3 install --default-timeout=1000 lightgbm")
 os.system("pip3 install -U --default-timeout=1000 pandas==0.24.2")
@@ -122,12 +122,12 @@ class Model:
         print(f"prediction remaining time: {time_remain}")
         print('', flush=True)
         Xs = self.tables
-        main_table, len_X_train = Xs[MAIN_TABLE_NAME], len(Xs[MAIN_TABLE_NAME])
-        main_table = pd.concat([main_table, X_test], keys=['train', 'test'], sort=True)
-        time_manager.check("concat X_train and X_test")
-        main_table.index = main_table.index.map(lambda x: f"{x[0]}_{x[1]}")
-        Xs[MAIN_TABLE_NAME] = main_table
-
+        # main_table, len_X_train = Xs[MAIN_TABLE_NAME], len(Xs[MAIN_TABLE_NAME])
+        # main_table = pd.concat([main_table, X_test], keys=['train', 'test'], sort=True)
+        # time_manager.check("concat X_train and X_test")
+        # main_table.index = main_table.index.map(lambda x: f"{x[0]}_{x[1]}")
+        # Xs[MAIN_TABLE_NAME] = main_table
+        Xs[MAIN_TABLE_NAME] = X_test
         clean_df(Xs[MAIN_TABLE_NAME])
         time_manager.check("clean main table")
 
@@ -147,7 +147,7 @@ class Model:
         print('', flush=True)
 
         # X = X[X.index.str.startswith("test")]
-        X = X.iloc[len_X_train:, ]
+        # X = X.iloc[len_X_train:, ]
         X.sort_index(inplace=True)
         time_manager.check("X sorting")
         if FEATURE_SELECTION_SWITCH:
